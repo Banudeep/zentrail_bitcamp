@@ -56,23 +56,18 @@ const stateCoordinates: { [key: string]: [number, number] } = {
 };
 
 interface ParkMapProps {
-  stateCode: string; // Restrict to valid state codes or empty string
+  stateCode: string;
 }
 
 const MapZoomHandler: React.FC<{ stateCode: string }> = ({ stateCode }) => {
   const map = useMap();
-  console.log("ParkMap component1 rendered with stateCode:", stateCode);
+
   useEffect(() => {
     if (stateCode && stateCoordinates[stateCode]) {
       const [lat, lng] = stateCoordinates[stateCode];
-      if (process.env.NODE_ENV === "development") {
-        console.log(
-          `Zooming to state: ${stateCode}, Coordinates: ${lat}, ${lng}`
-        );
-      }
-      map.setView([lat, lng], 6); // Zoom level 6 for state-level view
+      map.setView([lat, lng], 6);
     } else {
-      map.setView([37.0902, -95.7129], 4); // Default to US center
+      map.setView([37.0902, -95.7129], 4);
     }
   }, [stateCode, map]);
 
@@ -80,24 +75,18 @@ const MapZoomHandler: React.FC<{ stateCode: string }> = ({ stateCode }) => {
 };
 
 const ParkMap: React.FC<ParkMapProps> = ({ stateCode }) => {
-  console.log("ParkMap component rendered with stateCode:", stateCode);
   return (
-    <div style={{ width: "100%", height: "100vh" }}>
+    <div className="w-full h-[500px]">
       <MapContainer
-        className="w-full h-screen" // Example Tailwind classes
-        center={[37.0902, -95.7129]} // Default center (US)
-        zoom={4} // Default zoom level
-        style={{ width: "100%", height: "100%" }}
+        center={[37.0902, -95.7129]}
+        zoom={4}
+        style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          options={{
-            attribution:
-              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          }}
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         <MapZoomHandler stateCode={stateCode} />
-        {/* Dynamically add markers for all states */}
         {Object.entries(stateCoordinates).map(([state, [lat, lng]]) => (
           <Marker key={state} position={[lat, lng]}>
             <Popup>{state}</Popup>

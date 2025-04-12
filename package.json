@@ -1,0 +1,25 @@
+{
+  "name": "zentrail_bitcamp",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/Banudeep/zentrail_bitcamp#readme",
+  "bugs": {
+    "url": "https://github.com/Banudeep/zentrail_bitcamp/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Banudeep/zentrail_bitcamp.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "postcss.config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4",
+    "react-leaflet": "^4.2.1"
+  },
+  "devDependencies": {}
+}

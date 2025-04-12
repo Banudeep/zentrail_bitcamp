@@ -1,6 +1,7 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import NationalParkSelector from "../NationalParkSelector/NationalParkSelector";
-import { FaCompass, FaMapMarkedAlt } from "react-icons/fa";
+import { FaArrowLeft, FaCompass, FaMapMarkedAlt } from "react-icons/fa";
 import ParkMap from "../Park/ParkMap";
 
 const Explore: React.FC = () => {
@@ -67,34 +68,45 @@ const Explore: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F5F5F5] to-[#E0E0E0]">
-      <div className="max-w-7xl mx-auto p-6">
+    <div className="min-h-screen bg-gradient-to-br from-[#f5f2e8] to-[#d3d9cf]">
+      <div className="max-w-7xl mx-auto p-3">
+        {/* Back Button */}
+        <div className="mb-2">
+          <Link
+            to="/Home"
+            className="inline-flex items-center gap-2 text-[#4d5e56] hover:text-[#97a88c] transition-colors duration-200"
+          >
+            <FaArrowLeft />
+            <span className="font-medium">Back to Home</span>
+          </Link>
+        </div>
+
         {/* Header */}
-        <div className="mb-8 text-center">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <FaCompass className="text-4xl text-[#2B4C7E]" />
-            <h1 className="text-4xl font-bold text-[#1A1A1A]">
+        <div className="mb-3 text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <FaCompass className="text-2xl text-[#97a88c]" />
+            <h1 className="text-2xl font-bold text-[#4d5e56]">
               Explore National Parks
             </h1>
           </div>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-sm text-[#4d5e56] max-w-2xl mx-auto">
             Discover America's most beautiful landscapes and natural wonders
             across all 50 states
           </p>
         </div>
 
         {/* State Selection Bar */}
-        <div className="mb-8">
-          <div className="bg-white rounded-lg shadow-lg p-4">
+        <div className="mb-3">
+          <div className="bg-[#f5f2e8] rounded-lg shadow-lg p-2">
             <div className="max-w-7xl mx-auto">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[#4d5e56] mb-1">
                 Select a State to Explore
               </label>
               <div className="relative">
                 <select
                   value={selectedState}
                   onChange={(e) => handleStateChange(e)}
-                  className="w-full bg-white text-[#1A1A1A] text-lg px-4 py-3 rounded-lg border-2 border-[#2B4C7E] focus:outline-none focus:ring-2 focus:ring-[#2B4C7E] focus:border-transparent transition-all duration-200"
+                  className="w-full bg-white text-[#4d5e56] text-sm px-3 py-2 rounded-lg border border-[#97a88c] focus:outline-none focus:ring-2 focus:ring-[#97a88c] focus:border-transparent transition-all duration-200"
                 >
                   {states.map((state) => (
                     <option
@@ -105,25 +117,25 @@ const Explore: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                <FaMapMarkedAlt className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#2B4C7E] text-xl pointer-events-none" />
+                <FaMapMarkedAlt className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#97a88c] text-base pointer-events-none" />
               </div>
             </div>
           </div>
         </div>
 
         {/* Main Content */}
-        <div className="grid grid-cols-12 gap-8">
+        <div className="grid grid-cols-12 gap-3">
           {/* Left Column - Park List */}
-          <div className="col-span-4 bg-white rounded-xl shadow-lg p-4">
+          <div className="col-span-4 bg-[#f5f2e8] rounded-lg shadow-lg p-2">
             <NationalParkSelector selectedState={selectedState} />
           </div>
 
           {/* Right Column - Map */}
           <div className="col-span-8">
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="p-4 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-[#2B4C7E] flex items-center gap-2">
-                  <FaMapMarkedAlt />
+            <div className="bg-[#f5f2e8] rounded-lg shadow-lg overflow-hidden">
+              <div className="p-2 border-b border-[#d3d9cf]">
+                <h2 className="text-base font-semibold text-[#4d5e56] flex items-center gap-2">
+                  <FaMapMarkedAlt className="text-[#97a88c]" />
                   Interactive Park Map
                 </h2>
               </div>

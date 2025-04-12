@@ -7,6 +7,7 @@ import SignUp from "./components/auth/SignUp";
 import Home from "./components/Home";
 import AuthCallback from "./components/auth/AuthCallback";
 import Explore from "./components/Explore/Explore";
+import Plan from "./components/Plan/Plan";
 
 const App: React.FC = () => {
   return (
@@ -33,6 +34,7 @@ const App: React.FC = () => {
           <Route path="/home" element={<Home />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/explore" element={<Explore />} />
+          <Route path="/Plan" element={<Plan />} />
         </Routes>
       </div>
     </ThemeProvider>
