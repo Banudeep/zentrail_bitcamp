@@ -90,18 +90,37 @@ const Home: React.FC = () => {
             throw new Error("User ID is missing from the response");
           }
 
-          const statsResponse = await axios.get(
-            `${API_URL}/api/user-stats/${userResponse.data._id}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-              withCredentials: true,
+          let statsResponse;
+          try {
+            statsResponse = await axios.get(
+              `${API_URL}/api/user-stats/${userResponse.data._id}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+                withCredentials: true,
+              }
+            );
+          } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+              // User stats not found in MongoDB
+              statsResponse = { userStats };
+              // post the initial stats
+              await axios.post(`${API_URL}/api/user-stats`, {
+                totalTripsPlanned: 0,
+                nationalParksVisited: 0,
+                stateParksVisited: 0,
+                milesOfTrailsPlanned: 0,
+                campgroundsStayed: 0,
+                userId: userResponse.data._id,
+              });
+            } else {
+              throw error; // Re-throw other errors
             }
-          );
+          }
 
-          console.log("Stats response:", statsResponse.data);
+          console.log("Stats response:", statsResponse);
 
           if (statsResponse.data) {
             setUserStats(statsResponse.data);
@@ -129,7 +148,7 @@ const Home: React.FC = () => {
             } else if (status === 401) {
               setError("Session expired. Please log in again.");
               localStorage.removeItem("token");
-              navigate("/login");
+              navigate("/Home");
             } else {
               setError(`Error: ${message}. Status: ${status}`);
             }
@@ -170,7 +189,7 @@ const Home: React.FC = () => {
       <div className="w-48 h-full left-24 top-48 absolute">
         <div className="bg-[#123458] p-4 rounded-lg space-y-6">
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/Home")}
             className="w-full text-white text-xl font-bold py-4 hover:bg-[#1a4875] rounded transition-colors"
           >
             Home
