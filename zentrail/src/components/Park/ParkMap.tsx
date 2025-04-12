@@ -75,20 +75,16 @@ const MapZoomHandler: React.FC<{ stateCode: string }> = ({ stateCode }) => {
 };
 
 const ParkMap: React.FC<ParkMapProps> = ({ stateCode }) => {
-  const defaultCenter: [number, number] = [37.0902, -95.7129];
-  const defaultZoom = 4;
-
   return (
-    <div style={{ width: "100%", height: "500px" }}>
+    <div className="w-full h-[500px]">
       <MapContainer
-        center={defaultCenter}
-        zoom={defaultZoom}
-        style={{ width: "100%", height: "100%" }}
-        scrollWheelZoom={true}
+        center={[37.0902, -95.7129]}
+        zoom={4}
+        style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         <MapZoomHandler stateCode={stateCode} />
         {Object.entries(stateCoordinates).map(([state, [lat, lng]]) => (
