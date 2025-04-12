@@ -67,15 +67,16 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
   const map = useMap();
 
   useEffect(() => {
-    console.log("park map State Code:", stateCode);
-    console.log("parkmap selectedPark:", selectedPark);
-    if (stateCode && stateCoordinates[stateCode]) {
+    if (selectedPark) {
+      // TODO: Add logic to zoom to selected park once we have park coordinates
+      console.log("Selected park changed:", selectedPark);
+    } else if (stateCode && stateCoordinates[stateCode]) {
       const [lat, lng] = stateCoordinates[stateCode];
       map.setView([lat, lng], 6);
     } else {
       map.setView([37.0902, -95.7129], 4);
     }
-  }, [stateCode, map]);
+  }, [stateCode, selectedPark, map]);
 
   return null;
 };
@@ -92,7 +93,7 @@ const ParkMap: React.FC<ParkMapProps> = ({ stateCode, selectedPark }) => {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
-        <MapZoomHandler stateCode={stateCode} />
+        <MapZoomHandler stateCode={stateCode} selectedPark={selectedPark} />
         {Object.entries(stateCoordinates).map(([state, [lat, lng]]) => (
           <Marker key={state} position={[lat, lng]}>
             <Popup>{state}</Popup>
