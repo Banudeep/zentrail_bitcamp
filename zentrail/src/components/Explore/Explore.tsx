@@ -148,7 +148,7 @@ const Explore: React.FC = () => {
                   Interactive Park Map
                 </h2>
               </div>
-              <ParkMap stateCode={selectedState} parkCode={selectedPark} />
+              <ParkMap stateCode={selectedState} />
             </div>
           </div>
         </div>
