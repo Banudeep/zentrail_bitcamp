@@ -1,3 +1,9 @@
 pymongo
 requests
 python-dotenv
+fastapi
+uvicorn[standard]
+transformers
+torch
+faiss-cpu
+numpy

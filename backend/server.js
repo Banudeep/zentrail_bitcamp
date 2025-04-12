@@ -61,11 +61,13 @@ app.get("/api/test", (req, res) => {
 const authRoutes = require("./routes/authRoutes");
 const userStatsRoutes = require("./routes/userStatsRoutes");
 const parkRoutes = require("./routes/parkRoutes");
+const chatRoutes = require("./routes/chatRoutes");
 
 // Mount routes BEFORE the 404 handler
 app.use("/api/auth", authRoutes);
 app.use("/api/user-stats", userStatsRoutes);
 app.use("/api/parks", parkRoutes);
+app.use("/api/chat", chatRoutes);
 
 // MongoDB connection with detailed error handling
 const connectDB = async () => {
@@ -135,15 +137,44 @@ app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
-// Start server
+// Start server with port retry logic
+const startServer = async (initialPort) => {
+  let currentPort = initialPort;
+  const maxRetries = 10;
+
+  const tryListen = (port) => {
+    return new Promise((resolve, reject) => {
+      const server = app.listen(port)
+        .once('listening', () => {
+          console.log(`Server running on port ${port}`);
+          console.log(`Client URL: ${process.env.CLIENT_URL}`);
+          resolve(server);
+        })
+        .once('error', (err) => {
+          if (err.code === 'EADDRINUSE') {
+            resolve(false);
+          } else {
+            reject(err);
+          }
+        });
+    });
+  };
+
+  for (let i = 0; i < maxRetries; i++) {
+    const server = await tryListen(currentPort);
+    if (server) {
+      return;
+    }
+    console.log(`Port ${currentPort} is in use, trying ${currentPort + 1}...`);
+    currentPort++;
+  }
+  throw new Error(`Could not find an available port after ${maxRetries} retries`);
+};
+
+// Modified server start
 const PORT = process.env.PORT || 5001;
 connectDB()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-      console.log(`Client URL: ${process.env.CLIENT_URL}`);
-    });
-  })
+  .then(() => startServer(PORT))
   .catch((err) => {
     console.error("Failed to start server:", err);
     process.exit(1);
