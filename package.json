@@ -18,8 +18,9 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "chromadb": "^2.2.0",
+    "chromadb-default-embed": "^2.14.0",
     "leaflet": "^1.9.4",
-    "react-leaflet": "^4.2.1"
-  },
-  "devDependencies": {}
+    "react-leaflet": "^5.0.0"
+  }
 }
