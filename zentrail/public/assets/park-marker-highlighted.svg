@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="40" height="52" viewBox="0 0 40 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Glow effect -->
+  <defs>
+    <filter id="glow" x="-4" y="-4" width="48" height="60" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Pin with glow -->
+  <g filter="url(#glow)">
+    <!-- Pin base with teardrop shape -->
+    <path d="M20 0C11.716 0 5 6.716 5 15c0 10.5 15 30 15 30s15-19.5 15-30c0-8.284-6.716-15-15-15z" fill="#97a88c"/>
+    
+    <!-- Mountain peaks and trees symbol -->
+    <g transform="translate(10, 8)">
+      <!-- Mountains -->
+      <path d="M2 10L6 4L8 7L10 4L14 10H2Z" fill="#f5f2e8"/>
+      <!-- Tree -->
+      <path d="M6 8L8 5L10 8H6Z" fill="#f5f2e8"/>
+    </g>
+    
+    <!-- Outline -->
+    <path d="M20 0C11.716 0 5 6.716 5 15c0 10.5 15 30 15 30s15-19.5 15-30c0-8.284-6.716-15-15-15z" 
+      stroke="#f5f2e8" stroke-width="1.5" fill="none"/>
+  </g>
+</svg> 
