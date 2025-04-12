@@ -1,6 +1,42 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+// Create custom park icon
+const parkIcon = L.icon({
+  iconUrl: "/assets/park-marker.svg",
+  iconSize: [32, 42],
+  iconAnchor: [16, 42], // Bottom center of the pin
+  popupAnchor: [0, -42], // Top center of the pin
+});
+
+// Create highlighted park icon
+const highlightedParkIcon = L.icon({
+  iconUrl: "/assets/park-marker-highlighted.svg",
+  iconSize: [40, 52],
+  iconAnchor: [20, 52], // Bottom center of the pin
+  popupAnchor: [0, -52], // Top center of the pin
+});
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5002";
+console.log("Environment variables:", {
+  VITE_API_URL: import.meta.env.VITE_API_URL,
+  NODE_ENV: import.meta.env.NODE_ENV,
+  API_URL,
+});
+
+interface Park {
+  parkCode: string;
+  name: string;
+  latitude: string;
+  longitude: string;
+}
+
+interface ParkMapProps {
+  stateCode: string;
+  selectedPark: string;
+}
 
 const stateCoordinates: { [key: string]: [number, number] } = {
   AL: [32.806671, -86.79113], // Alabama
@@ -55,28 +91,105 @@ const stateCoordinates: { [key: string]: [number, number] } = {
   WY: [43.075968, -107.290284], // Wyoming
 };
 
-interface ParkMapProps {
-  stateCode: string;
-}
-
-const MapZoomHandler: React.FC<{ stateCode: string }> = ({ stateCode }) => {
+const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
+  stateCode,
+  selectedPark,
+}) => {
   const map = useMap();
+  const [parks, setParks] = useState<Park[]>([]);
 
   useEffect(() => {
+    const fetchParks = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          console.error("No auth token found");
+          return;
+        }
+
+        const response = await fetch(`${API_URL}/api/parks`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        setParks(data);
+      } catch (error) {
+        console.error("Error fetching parks:", error);
+      }
+    };
+
+    fetchParks();
+  }, []);
+
+  useEffect(() => {
+    if (selectedPark && parks.length > 0) {
+      const selectedParkData = parks.find(
+        (park) => park.parkCode === selectedPark
+      );
+      if (selectedParkData) {
+        const lat = parseFloat(selectedParkData.latitude);
+        const lng = parseFloat(selectedParkData.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          map.setView([lat, lng], 10);
+          return;
+        }
+      }
+    }
+  }, [selectedPark, parks, map]);
+
+  useEffect(() => {
+    console.log("stateCode in parkmap", stateCode);
     if (stateCode && stateCoordinates[stateCode]) {
       const [lat, lng] = stateCoordinates[stateCode];
       map.setView([lat, lng], 6);
     } else {
       map.setView([37.0902, -95.7129], 4);
     }
-  }, [stateCode, map]);
+  }, [stateCode]);
 
-  return null;
+  return (
+    <>
+      {parks.map((park) => {
+        const lat = parseFloat(park.latitude);
+        const lng = parseFloat(park.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          return (
+            <Marker
+              key={park.parkCode}
+              position={[lat, lng]}
+              icon={
+                selectedPark === park.parkCode ? highlightedParkIcon : parkIcon
+              }
+              zIndexOffset={selectedPark === park.parkCode ? 1000 : 0}
+            >
+              <Popup>
+                <div className="text-center">
+                  <strong className="block text-[#2B4C7E] text-sm mb-1">
+                    {park.name}
+                  </strong>
+                  <span className="text-xs text-gray-600">
+                    Click for details
+                  </span>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        }
+        return null;
+      })}
+    </>
+  );
 };
 
-const ParkMap: React.FC<ParkMapProps> = ({ stateCode }) => {
+const ParkMap: React.FC<ParkMapProps> = ({ stateCode, selectedPark }) => {
   return (
-    <div className="w-full h-[500px]">
+    <div className="w-full h-[710px]">
       <MapContainer
         center={[37.0902, -95.7129]}
         zoom={4}
@@ -86,12 +199,7 @@ const ParkMap: React.FC<ParkMapProps> = ({ stateCode }) => {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
-        <MapZoomHandler stateCode={stateCode} />
-        {Object.entries(stateCoordinates).map(([state, [lat, lng]]) => (
-          <Marker key={state} position={[lat, lng]}>
-            <Popup>{state}</Popup>
-          </Marker>
-        ))}
+        <MapZoomHandler stateCode={stateCode} selectedPark={selectedPark} />
       </MapContainer>
     </div>
   );

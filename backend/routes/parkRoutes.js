@@ -25,7 +25,9 @@ router.get("/", verifyToken, async (req, res) => {
     const parks = await Park.find({
       designation: "National Park",
     })
-      .select("id parkCode name fullName states description images designation")
+      .select(
+        "id parkCode name fullName states description images designation latitude longitude"
+      )
       .sort({ name: 1 });
     res.json(parks);
   } catch (error) {
