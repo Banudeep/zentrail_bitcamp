@@ -19,6 +19,7 @@ interface Park {
 
 interface NationalParkSelectorProps {
   selectedState: string;
+  onParkSelect: (parkCode: string) => void;
 }
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5002";
@@ -30,6 +31,7 @@ console.log("Environment variables:", {
 
 const NationalParkSelector: React.FC<NationalParkSelectorProps> = ({
   selectedState,
+  onParkSelect,
 }) => {
   const [parks, setParks] = useState<Park[]>([]);
 
@@ -105,6 +107,11 @@ const NationalParkSelector: React.FC<NationalParkSelectorProps> = ({
   //     { id: 15, name: "Sequoia National Park", location: "California" },
   //   ]);
 
+  const onParkSelectHandler = (parkCode: string) => {
+    console.log("Selected park code:", parkCode);
+    onParkSelect(parkCode);
+  };
+
   return (
     <div className="bg-[#E0E0E0] rounded-lg p-4 h-[calc(100vh-200px)] overflow-y-auto">
       <div className="space-y-4">
@@ -137,7 +144,10 @@ const NationalParkSelector: React.FC<NationalParkSelectorProps> = ({
               <p className="text-gray-600 text-sm line-clamp-3">
                 {park.description}
               </p>
-              <button className="mt-4 w-full bg-[#2B4C7E] text-white py-2 px-4 rounded-md hover:bg-[#1A365D] transition-colors duration-200">
+              <button
+                onClick={() => onParkSelectHandler(park.parkCode)}
+                className="mt-4 w-full bg-[#2B4C7E] text-white py-2 px-4 rounded-md hover:bg-[#1A365D] transition-colors duration-200"
+              >
                 View Details
               </button>
             </div>

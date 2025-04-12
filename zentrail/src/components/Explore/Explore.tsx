@@ -6,6 +6,7 @@ import ParkMap from "../Park/ParkMap";
 
 const Explore: React.FC = () => {
   const [selectedState, setSelectedState] = useState<string>("");
+  const [selectedPark, setSelectedPark] = useState<string>("");
 
   const states = [
     { name: "Select a State", code: "" },
@@ -65,6 +66,11 @@ const Explore: React.FC = () => {
     const selectedState = states.find((state) => state.name === e.target.value);
     console.log("State changed to:", selectedState);
     setSelectedState(selectedState?.code || "");
+  };
+
+  const handleParkSelect = (parkCode: string) => {
+    console.log("Selected park in Explore:", parkCode);
+    setSelectedPark(parkCode);
   };
 
   return (
@@ -127,7 +133,10 @@ const Explore: React.FC = () => {
         <div className="grid grid-cols-12 gap-3">
           {/* Left Column - Park List */}
           <div className="col-span-4 bg-[#f5f2e8] rounded-lg shadow-lg p-2">
-            <NationalParkSelector selectedState={selectedState} />
+            <NationalParkSelector
+              selectedState={selectedState}
+              onParkSelect={handleParkSelect}
+            />
           </div>
 
           {/* Right Column - Map */}
@@ -139,7 +148,7 @@ const Explore: React.FC = () => {
                   Interactive Park Map
                 </h2>
               </div>
-              <ParkMap stateCode={selectedState} />
+              <ParkMap stateCode={selectedState} parkCode={selectedPark} />
             </div>
           </div>
         </div>
