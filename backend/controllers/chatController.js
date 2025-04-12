@@ -9,6 +9,8 @@ class ChatError extends Error {
   }
 }
 
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+
 const handleChat = async (req, res) => {
   try {
     const { message, parkCode, selectedActivities } = req.body;
@@ -37,21 +39,31 @@ const handleChat = async (req, res) => {
       directionsInfo: park.directionsInfo
     };
 
-    // Call your Gemini API with the context
+    // Call Gemini API with proper authentication
     try {
-      const response = await axios.post(process.env.GEMINI_API_URL, {
-        message,
-        context,
-        type: 'chat'
-      });
+      const response = await axios.post(
+        `${GEMINI_API_URL}?key=${process.env.GOOGLE_API_KEY}`,
+        {
+          contents: [{
+            parts: [{
+              text: `Context: ${JSON.stringify(context)}\n\nUser message: ${message}`
+            }]
+          }]
+        }
+      );
+
+      // Process Gemini response
+      const aiResponse = response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response';
 
       // Send response back to client
       return res.json({
-        message: response.data.response,
-        options: response.data.suggestions || []
+        message: {
+          text: aiResponse
+        },
+        options: []
       });
     } catch (error) {
-      console.error('Gemini API error:', error);
+      console.error('Gemini API error:', error.response?.data || error.message);
       throw new ChatError('Error processing chat request');
     }
   } catch (error) {
@@ -89,17 +101,25 @@ const generateItinerary = async (req, res) => {
 
     // Call Gemini API for itinerary generation
     try {
-      const response = await axios.post(process.env.GEMINI_API_URL, {
-        context,
-        type: 'itinerary'
-      });
+      const response = await axios.post(
+        `${GEMINI_API_URL}?key=${process.env.GOOGLE_API_KEY}`,
+        {
+          contents: [{
+            parts: [{
+              text: `Generate a detailed itinerary for ${park.fullName}. Context: ${JSON.stringify(context)}`
+            }]
+          }]
+        }
+      );
+
+      const aiResponse = response.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate an itinerary';
 
       return res.json({
-        itinerary: response.data.itinerary,
-        suggestions: response.data.suggestions
+        itinerary: aiResponse,
+        suggestions: []
       });
     } catch (error) {
-      console.error('Gemini API error:', error);
+      console.error('Gemini API error:', error.response?.data || error.message);
       throw new ChatError('Error generating itinerary');
     }
   } catch (error) {

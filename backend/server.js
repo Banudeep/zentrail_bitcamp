@@ -66,7 +66,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/user-stats", userStatsRoutes);
 app.use("/api/parks", parkRoutes);
 app.use("/api/chat", chatRoutes);
-app.use("/api", chatRoutes);
 
 // MongoDB connection with detailed error handling
 const connectDB = async () => {
