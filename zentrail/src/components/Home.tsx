@@ -1,14 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { FaGlobeAmericas, FaMountain, FaTree, FaRoute, FaCampground } from 'react-icons/fa';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import {
+  FaGlobeAmericas,
+  FaMountain,
+  FaTree,
+  FaRoute,
+  FaCampground,
+} from "react-icons/fa";
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002';
-console.log('Environment variables:', {
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5002";
+console.log("Environment variables:", {
   VITE_API_URL: import.meta.env.VITE_API_URL,
   NODE_ENV: import.meta.env.NODE_ENV,
-  API_URL
+  API_URL,
 });
+
+// checking git commit branch
 
 // Configure axios defaults
 axios.defaults.withCredentials = true;
@@ -35,98 +43,104 @@ const Home: React.FC = () => {
     nationalParksVisited: 0,
     stateParksVisited: 0,
     milesOfTrailsPlanned: 0,
-    campgroundsStayed: 0
+    campgroundsStayed: 0,
   });
-  const [user, setUser] = useState<User>({ firstName: '', lastName: '' });
+  const [user, setUser] = useState<User>({ firstName: "", lastName: "" });
 
   useEffect(() => {
     const fetchUserData = async () => {
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem('token');
-        
+        const token = localStorage.getItem("token");
+
         if (!token) {
-          console.error('Authentication token is missing');
-          setError('Please log in to continue');
-          navigate('/login');
+          console.error("Authentication token is missing");
+          setError("Please log in to continue");
+          navigate("/login");
           return;
         }
 
         // First API call - Get user data
-        console.log('API URL:', API_URL);
-        console.log('Making request to:', `${API_URL}/api/auth/user`);
+        console.log("API URL:", API_URL);
+        console.log("Making request to:", `${API_URL}/api/auth/user`);
         try {
           const userResponse = await axios.get(`${API_URL}/api/auth/user`, {
-            headers: { 
+            headers: {
               Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json'
+              "Content-Type": "application/json",
             },
-            withCredentials: true
+            withCredentials: true,
           });
-          
-          console.log('User data response:', userResponse.data);
-          
+
+          console.log("User data response:", userResponse.data);
+
           if (!userResponse.data) {
-            throw new Error('No user data received');
+            throw new Error("No user data received");
           }
 
           setUser({
-            firstName: userResponse.data.firstName || '',
-            lastName: userResponse.data.lastName || ''
+            firstName: userResponse.data.firstName || "",
+            lastName: userResponse.data.lastName || "",
           });
 
           // Second API call - Get user stats
-          console.log('Attempting to fetch user stats...');
+          console.log("Attempting to fetch user stats...");
           if (!userResponse.data._id) {
-            throw new Error('User ID is missing from the response');
+            throw new Error("User ID is missing from the response");
           }
 
-          const statsResponse = await axios.get(`${API_URL}/api/user-stats/${userResponse.data._id}`, {
-            headers: { 
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            withCredentials: true
-          });
+          const statsResponse = await axios.get(
+            `${API_URL}/api/user-stats/${userResponse.data._id}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              withCredentials: true,
+            }
+          );
 
-          console.log('Stats response:', statsResponse.data);
+          console.log("Stats response:", statsResponse.data);
 
           if (statsResponse.data) {
             setUserStats(statsResponse.data);
           }
-
         } catch (apiError) {
           if (axios.isAxiosError(apiError)) {
             const status = apiError.response?.status;
-            const message = apiError.response?.data?.message || apiError.message;
-            console.error('API Error Details:', {
+            const message =
+              apiError.response?.data?.message || apiError.message;
+            console.error("API Error Details:", {
               status,
               message,
               url: apiError.config?.url,
               method: apiError.config?.method,
               headers: apiError.config?.headers,
-              data: apiError.response?.data
+              data: apiError.response?.data,
             });
-            
+
             if (status === 404) {
-              setError(`API endpoint not found. Please check if the server is running on port ${new URL(API_URL).port}. URL: ${apiError.config?.url}`);
+              setError(
+                `API endpoint not found. Please check if the server is running on port ${
+                  new URL(API_URL).port
+                }. URL: ${apiError.config?.url}`
+              );
             } else if (status === 401) {
-              setError('Session expired. Please log in again.');
-              localStorage.removeItem('token');
-              navigate('/login');
+              setError("Session expired. Please log in again.");
+              localStorage.removeItem("token");
+              navigate("/login");
             } else {
               setError(`Error: ${message}. Status: ${status}`);
             }
           } else {
-            console.error('Non-Axios error:', apiError);
-            setError('An unexpected error occurred while fetching data');
+            console.error("Non-Axios error:", apiError);
+            setError("An unexpected error occurred while fetching data");
           }
         }
-
       } catch (error) {
-        console.error('Top-level error:', error);
-        setError('Failed to load user data. Please try again later.');
+        console.error("Top-level error:", error);
+        setError("Failed to load user data. Please try again later.");
       } finally {
         setLoading(false);
       }
@@ -136,50 +150,70 @@ const Home: React.FC = () => {
   }, [navigate]);
 
   const handleSignOut = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
+    localStorage.removeItem("token");
+    navigate("/login");
   };
 
   return (
     <div className="w-full h-screen relative bg-[#F3F4F6] overflow-hidden">
       {/* Background Image with overlay */}
       <div className="absolute inset-0">
-        <img 
+        <img
           src="/background.png"
-          alt="Yosemite El Capitan" 
+          alt="Yosemite El Capitan"
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-black/30"></div>
       </div>
-      
+
       {/* Left Navigation Menu */}
       <div className="w-48 h-full left-24 top-48 absolute">
         <div className="bg-[#123458] p-4 rounded-lg space-y-6">
-          <button onClick={() => navigate('/')} className="w-full text-white text-xl font-bold py-4 hover:bg-[#1a4875] rounded transition-colors">
+          <button
+            onClick={() => navigate("/")}
+            className="w-full text-white text-xl font-bold py-4 hover:bg-[#1a4875] rounded transition-colors"
+          >
             Home
           </button>
-          <button onClick={() => navigate('/explore')} className="w-full text-white text-xl font-bold py-4 hover:bg-[#1a4875] rounded transition-colors">
+          <button
+            onClick={() => navigate("/explore")}
+            className="w-full text-white text-xl font-bold py-4 hover:bg-[#1a4875] rounded transition-colors"
+          >
             Explore Parks
           </button>
-          <button onClick={() => navigate('/plan')} className="w-full text-white text-xl font-bold py-4 hover:bg-[#1a4875] rounded transition-colors">
+          <button
+            onClick={() => navigate("/plan")}
+            className="w-full text-white text-xl font-bold py-4 hover:bg-[#1a4875] rounded transition-colors"
+          >
             Plan Itinerary
           </button>
-          <button onClick={() => navigate('/settings')} className="w-full text-white text-xl font-bold py-4 hover:bg-[#1a4875] rounded transition-colors">
+          <button
+            onClick={() => navigate("/settings")}
+            className="w-full text-white text-xl font-bold py-4 hover:bg-[#1a4875] rounded transition-colors"
+          >
             Settings
           </button>
-          <button onClick={handleSignOut} className="w-full text-white text-xl font-bold py-4 hover:bg-[#1a4875] rounded transition-colors">
+          <button
+            onClick={handleSignOut}
+            className="w-full text-white text-xl font-bold py-4 hover:bg-[#1a4875] rounded transition-colors"
+          >
             Sign Out
           </button>
         </div>
       </div>
 
       {/* Logo */}
-      <img src="/assets/logo1.png" alt="ZenTrail Logo" className="w-48 h-auto left-24 top-8 absolute" />
+      <img
+        src="/assets/logo1.png"
+        alt="ZenTrail Logo"
+        className="w-48 h-auto left-24 top-8 absolute"
+      />
 
       {/* Welcome Text */}
       <div className="absolute left-80 top-16 text-white">
         <h1 className="text-5xl font-['Kaushan Script'] mb-4">
-          ZenTrail Welcomes You {user.firstName ? `- ${user.firstName} ${user.lastName}` : ''}
+          ZenTrail Welcomes You{" "}
+          {user.firstName ? `- ${user.firstName} ${user.lastName}` : ""}
         </h1>
         <p className="text-2xl font-['Kaushan Script']">
           Let's build a trail that fits your soul!
@@ -256,4 +290,4 @@ const Home: React.FC = () => {
   );
 };
 
-export default Home; 
+export default Home;
