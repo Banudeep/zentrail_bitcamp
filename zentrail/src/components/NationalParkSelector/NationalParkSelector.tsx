@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 interface Park {
   id: string;
@@ -33,6 +34,7 @@ const NationalParkSelector: React.FC<NationalParkSelectorProps> = ({
   selectedState,
   onParkSelect,
 }) => {
+  const navigate = useNavigate();
   const [parks, setParks] = useState<Park[]>([]);
 
   useEffect(() => {
@@ -112,44 +114,68 @@ const NationalParkSelector: React.FC<NationalParkSelectorProps> = ({
     onParkSelect(parkCode);
   };
 
+  const handlePlanTrip = (parkCode: string) => {
+    navigate(`/parks/${parkCode}`);
+  };
+
   return (
-    <div className="bg-[#E0E0E0] rounded-lg p-4 h-[calc(100vh-200px)] overflow-y-auto">
-      <div className="space-y-4">
+    <div className="bg-[#E0E0E0] rounded-lg p-2 h-[calc(100vh-180px)] overflow-y-auto">
+      <div className="space-y-3">
+        {parks.length === 0 && selectedState && (
+          <div className="bg-white rounded-lg shadow-lg p-4 text-center">
+            <div className="text-3xl mb-2">🏞️</div>
+            <h3 className="text-lg font-semibold text-[#2B4C7E] mb-1">
+              No National Parks Found
+            </h3>
+            <p className="text-gray-600 text-sm">
+              There are no national parks in {selectedState}. Try selecting a
+              different state.
+            </p>
+          </div>
+        )}
         {parks.map((park) => (
           <div
             key={park.id}
             className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
           >
-            <div className="relative h-48 overflow-hidden">
+            <div className="relative h-36 overflow-hidden">
               <img
                 src={park.images[0]?.url || "/assets/park-placeholder.jpg"}
                 alt={park.name}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
-                <h3 className="text-white font-bold text-xl mb-1">
+              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                <h3 className="text-white font-bold text-base mb-0.5">
                   {park.name}
                 </h3>
-                <span className="text-white/80 text-sm">
+                <span className="text-white/80 text-xs">
                   {park.designation}
                 </span>
               </div>
             </div>
-            <div className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="px-2 py-1 bg-[#2B4C7E] text-white text-xs rounded-full">
+            <div className="p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="px-2 py-0.5 bg-[#2B4C7E] text-white text-xs rounded-full">
                   {park.states}
                 </span>
               </div>
-              <p className="text-gray-600 text-sm line-clamp-3">
+              <p className="text-gray-600 text-xs line-clamp-2">
                 {park.description}
               </p>
-              <button
-                onClick={() => onParkSelectHandler(park.parkCode)}
-                className="mt-4 w-full bg-[#2B4C7E] text-white py-2 px-4 rounded-md hover:bg-[#1A365D] transition-colors duration-200"
-              >
-                View Details
-              </button>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => onParkSelectHandler(park.parkCode)}
+                  className="flex-1 bg-[#2B4C7E] text-white py-1.5 px-3 rounded-md hover:bg-[#1A365D] transition-colors duration-200 text-sm"
+                >
+                  View On Map
+                </button>
+                <button
+                  onClick={() => handlePlanTrip(park.parkCode)}
+                  className="flex-1 bg-[#97a88c] text-white py-1.5 px-3 rounded-md hover:bg-[#7a8971] transition-colors duration-200 text-sm"
+                >
+                  Plan Trip
+                </button>
+              </div>
             </div>
           </div>
         ))}
