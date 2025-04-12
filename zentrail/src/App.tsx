@@ -14,7 +14,7 @@ const App: React.FC = () => {
     <ThemeProvider>
       <div className="min-h-screen">
         <Routes>
-          <Route path="/" element={<Navigate to="/signup" replace />} />
+          <Route path="/" element={<Navigate to="/signin" replace />} />
           <Route
             path="/signin"
             element={
