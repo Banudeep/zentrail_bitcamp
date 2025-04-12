@@ -172,7 +172,7 @@ const Home: React.FC = () => {
 
   const handleSignOut = () => {
     localStorage.removeItem("token");
-    navigate("/login");
+    navigate("/signin");
   };
 
   return (

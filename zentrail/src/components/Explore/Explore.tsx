@@ -7,6 +7,7 @@ import ParkMap from "../Park/ParkMap";
 const Explore: React.FC = () => {
   const [selectedState, setSelectedState] = useState<string>("");
   const [selectedPark, setSelectedPark] = useState<string>("");
+  const [selectedStateName, setSelectedStateName] = useState<string>("");
 
   const states = [
     { name: "Select a State", code: "" },
@@ -66,6 +67,7 @@ const Explore: React.FC = () => {
     const selectedState = states.find((state) => state.name === e.target.value);
     console.log("State changed to:", selectedState);
     setSelectedState(selectedState?.code || "");
+    setSelectedStateName(selectedState?.name || "");
   };
 
   const handleParkSelect = (parkCode: string) => {
@@ -110,7 +112,7 @@ const Explore: React.FC = () => {
               </label>
               <div className="relative">
                 <select
-                  value={selectedState}
+                  value={selectedStateName}
                   onChange={(e) => handleStateChange(e)}
                   className="w-full bg-white text-[#4d5e56] text-sm px-3 py-2 rounded-lg border border-[#97a88c] focus:outline-none focus:ring-2 focus:ring-[#97a88c] focus:border-transparent transition-all duration-200"
                 >
