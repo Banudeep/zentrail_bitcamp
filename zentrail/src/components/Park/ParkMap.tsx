@@ -57,12 +57,18 @@ const stateCoordinates: { [key: string]: [number, number] } = {
 
 interface ParkMapProps {
   stateCode: string;
+  selectedPark: string;
 }
 
-const MapZoomHandler: React.FC<{ stateCode: string }> = ({ stateCode }) => {
+const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
+  stateCode,
+  selectedPark,
+}) => {
   const map = useMap();
 
   useEffect(() => {
+    console.log("park map State Code:", stateCode);
+    console.log("parkmap selectedPark:", selectedPark);
     if (stateCode && stateCoordinates[stateCode]) {
       const [lat, lng] = stateCoordinates[stateCode];
       map.setView([lat, lng], 6);
@@ -74,7 +80,7 @@ const MapZoomHandler: React.FC<{ stateCode: string }> = ({ stateCode }) => {
   return null;
 };
 
-const ParkMap: React.FC<ParkMapProps> = ({ stateCode }) => {
+const ParkMap: React.FC<ParkMapProps> = ({ stateCode, selectedPark }) => {
   return (
     <div className="w-full h-[500px]">
       <MapContainer
