@@ -8,6 +8,7 @@ import {
   FaRoute,
   FaCampground,
 } from "react-icons/fa";
+import "leaflet/dist/leaflet.css";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5002";
 console.log("Environment variables:", {
@@ -46,6 +47,7 @@ const Home: React.FC = () => {
     campgroundsStayed: 0,
   });
   const [user, setUser] = useState<User>({ firstName: "", lastName: "" });
+  const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -252,53 +254,53 @@ const Home: React.FC = () => {
         ) : (
           <>
             {/* First row - 3 cards */}
-            <div className="bg-[#f5f2e8] rounded-lg p-6 text-center shadow-lg">
-              <FaGlobeAmericas className="w-20 h-20 mx-auto text-[#97a88c]" />
-              <h2 className="text-6xl font-extrabold text-[#4d5e56] my-4">
+            <div className="bg-[#D9D9D9] rounded-lg p-6 text-center">
+              <FaGlobeAmericas className="w-20 h-20 mx-auto text-[#123458]" />
+              <h2 className="text-6xl font-extrabold text-[#123458] my-4">
                 {userStats.totalTripsPlanned}
               </h2>
-              <p className="text-xl font-bold text-[#4d5e56]">
+              <p className="text-xl font-bold text-[#123458] underline">
                 Total Trips Planned
               </p>
             </div>
 
-            <div className="bg-[#f5f2e8] rounded-lg p-6 text-center shadow-lg">
-              <FaMountain className="w-20 h-20 mx-auto text-[#97a88c]" />
-              <h2 className="text-6xl font-extrabold text-[#4d5e56] my-4">
+            <div className="bg-[#D9D9D9] rounded-lg p-6 text-center">
+              <FaMountain className="w-20 h-20 mx-auto text-[#123458]" />
+              <h2 className="text-6xl font-extrabold text-[#123458] my-4">
                 {userStats.nationalParksVisited}
               </h2>
-              <p className="text-xl font-bold text-[#4d5e56]">
+              <p className="text-xl font-bold text-[#123458] underline">
                 National Parks Visited
               </p>
             </div>
 
-            <div className="bg-[#f5f2e8] rounded-lg p-6 text-center shadow-lg">
-              <FaTree className="w-20 h-20 mx-auto text-[#97a88c]" />
-              <h2 className="text-6xl font-extrabold text-[#4d5e56] my-4">
+            <div className="bg-[#D9D9D9] rounded-lg p-6 text-center">
+              <FaTree className="w-20 h-20 mx-auto text-[#123458]" />
+              <h2 className="text-6xl font-extrabold text-[#123458] my-4">
                 {userStats.stateParksVisited}
               </h2>
-              <p className="text-xl font-bold text-[#4d5e56]">
+              <p className="text-xl font-bold text-[#123458] underline">
                 State Parks Visited
               </p>
             </div>
 
             {/* Second row - 2 cards centered */}
-            <div className="bg-[#f5f2e8] rounded-lg p-6 text-center col-start-1 col-end-2 col-span-1 shadow-lg">
-              <FaRoute className="w-20 h-20 mx-auto text-[#97a88c]" />
-              <h2 className="text-6xl font-extrabold text-[#4d5e56] my-4">
+            <div className="bg-[#D9D9D9] rounded-lg p-6 text-center col-start-1 col-end-2 col-span-1">
+              <FaRoute className="w-20 h-20 mx-auto text-[#123458]" />
+              <h2 className="text-6xl font-extrabold text-[#123458] my-4">
                 {userStats.milesOfTrailsPlanned}
               </h2>
-              <p className="text-xl font-bold text-[#4d5e56]">
+              <p className="text-xl font-bold text-[#123458] underline">
                 Miles of Trails Planned
               </p>
             </div>
 
-            <div className="bg-[#f5f2e8] rounded-lg p-6 text-center col-span-1 shadow-lg">
-              <FaCampground className="w-20 h-20 mx-auto text-[#97a88c]" />
-              <h2 className="text-6xl font-extrabold text-[#4d5e56] my-4">
+            <div className="bg-[#D9D9D9] rounded-lg p-6 text-center col-span-1">
+              <FaCampground className="w-20 h-20 mx-auto text-[#123458]" />
+              <h2 className="text-6xl font-extrabold text-[#123458] my-4">
                 {userStats.campgroundsStayed}
               </h2>
-              <p className="text-xl font-bold text-[#4d5e56]">
+              <p className="text-xl font-bold text-[#123458] underline">
                 Campgrounds Stayed
               </p>
             </div>

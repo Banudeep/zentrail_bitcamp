@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import NationalParkSelector from "../NationalParkSelector/NationalParkSelector";
-import { FaCompass, FaMapMarkedAlt, FaArrowLeft } from "react-icons/fa";
+import { FaArrowLeft, FaCompass, FaMapMarkedAlt } from "react-icons/fa";
+import ParkMap from "../Park/ParkMap";
 
 const Explore: React.FC = () => {
   const [selectedState, setSelectedState] = useState<string>("");
@@ -138,13 +139,7 @@ const Explore: React.FC = () => {
                   Interactive Park Map
                 </h2>
               </div>
-              <div className="aspect-w-16 aspect-h-9">
-                <img
-                  src="/assets/washington-map.png"
-                  alt="National Parks Map"
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <ParkMap stateCode={selectedState} />
             </div>
           </div>
         </div>
