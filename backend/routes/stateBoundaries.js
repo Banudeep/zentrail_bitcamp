@@ -50,37 +50,33 @@ router.get("/:abbreviation", async (req, res) => {
       return res.status(404).json({ message: "State not found" });
     }
 
-    // Convert MongoDB number objects to regular numbers
-    const convertedState = convertMongoNumbers(state.toObject());
+    // Convert to plain object and ensure geometry is properly formatted
+    const stateObj = state.toObject();
 
-    // Transform the data into the format expected by the frontend
-    const transformedState = {
-      _id: convertedState._id,
-      stateCode: convertedState.abbreviation,
-      boundaryData: {
-        type: "FeatureCollection",
-        features: [
-          {
-            type: "Feature",
-            id: convertedState._id,
-            geometry: {
-              type: "MultiPolygon", // Always use MultiPolygon for consistency
-              coordinates: Array.isArray(
-                convertedState.geometry.coordinates[0][0][0]
-              )
-                ? convertedState.geometry.coordinates
-                : [convertedState.geometry.coordinates], // Convert Polygon to MultiPolygon
-            },
-            properties: {
-              name: convertedState.name,
-              stateCode: convertedState.abbreviation,
-            },
-          },
-        ],
-      },
-    };
+    // If geometry is missing coordinates, try to find it in the database
+    if (!stateObj.geometry?.coordinates) {
+      const stateWithCoords = await StateBoundary.findOne(
+        { abbreviation: req.params.abbreviation.toUpperCase() },
+        { geometry: 1 }
+      ).lean();
 
-    res.json(transformedState);
+      if (stateWithCoords?.geometry?.coordinates) {
+        stateObj.geometry = stateWithCoords.geometry;
+      }
+    }
+
+    // Ensure the geometry is properly formatted
+    if (stateObj.geometry && stateObj.geometry.coordinates) {
+      // If it's a Polygon, convert it to MultiPolygon
+      if (stateObj.geometry.type === "Polygon") {
+        stateObj.geometry = {
+          type: "MultiPolygon",
+          coordinates: [stateObj.geometry.coordinates],
+        };
+      }
+    }
+
+    res.json(stateObj);
   } catch (error) {
     console.error("Error fetching state boundary:", error);
     res.status(500).json({ message: "Error fetching state boundary" });
