@@ -19,12 +19,18 @@
   },
   "dependencies": {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     "html2canvas": "^1.4.1",
 =======
+=======
+>>>>>>> Stashed changes
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     "jspdf": "^3.0.1",
     "leaflet": "^1.9.4",

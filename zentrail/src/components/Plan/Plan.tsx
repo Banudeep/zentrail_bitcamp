@@ -13,7 +13,10 @@ import {
   FaComments,
   FaTimes,
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   FaDownload,
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 } from "react-icons/fa";
@@ -26,7 +29,11 @@ import {
   useMap,
 } from "react-leaflet";
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import { Feature, Geometry, FeatureCollection } from "geojson";
+=======
+import { Feature, Geometry } from "geojson";
+>>>>>>> Stashed changes
 =======
 import { Feature, Geometry } from "geojson";
 >>>>>>> Stashed changes
@@ -36,7 +43,10 @@ import L from "leaflet";
 import axios from "axios";
 import Logger from "../../utils/logger";
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import html2canvas from "html2canvas";
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 import jsPDF from "jspdf";
@@ -51,6 +61,7 @@ interface Park {
     id: string;
     name: string;
   }>;
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 }
 
@@ -74,6 +85,8 @@ interface ParkBoundary {
       };
     }>;
   };
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 }
@@ -121,6 +134,12 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5002";
 const CHATBOT_API_URL =
   import.meta.env.VITE_CHATBOT_API_URL || "http://localhost:8000";
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+const GEMINI_API_URL =
+  import.meta.env.VITE_GEMINI_API_URL || "http://localhost:9001";
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+>>>>>>> Stashed changes
 =======
 const GEMINI_API_URL =
   import.meta.env.VITE_GEMINI_API_URL || "http://localhost:9001";
@@ -170,6 +189,7 @@ const transformToGeoJSON = (trail: any): Trail | null => {
 };
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 const boundaryStyle = {
   fillColor: "#2C3930",
   fillOpacity: 0.15,
@@ -189,10 +209,15 @@ const MapController: React.FC<{
 const MapController: React.FC<{ park: Park | null }> = React.memo(
   ({ park }) => {
 >>>>>>> Stashed changes
+=======
+const MapController: React.FC<{ park: Park | null }> = React.memo(
+  ({ park }) => {
+>>>>>>> Stashed changes
     const map = useMap();
     const initialBoundSet = useRef(false);
 
     useEffect(() => {
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
       if (!map || initialBoundSet.current) return;
 
@@ -274,11 +299,26 @@ const MapController: React.FC<{ park: Park | null }> = React.memo(
             console.error("Error setting map view:", error);
           }
         }
+=======
+      if (park && map) {
+        const lat = parseFloat(park.latitude);
+        const lng = parseFloat(park.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          try {
+            map.setView([lat, lng], 12, { animate: false });
+          } catch (error) {
+            console.error("Error setting map view:", error);
+          }
+        }
+>>>>>>> Stashed changes
       }
       return () => {
         if (map) {
           try {
             map.setView([39.8283, -98.5795], 4, { animate: false });
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
           } catch (error) {
             console.error("Error resetting map view:", error);
@@ -286,8 +326,11 @@ const MapController: React.FC<{ park: Park | null }> = React.memo(
         }
       };
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     }, [map, park, parkBoundary, trails, campgrounds]);
 =======
+=======
+>>>>>>> Stashed changes
     }, [park?.latitude, park?.longitude, map]);
 >>>>>>> Stashed changes
 
@@ -297,10 +340,14 @@ const MapController: React.FC<{ park: Park | null }> = React.memo(
     return (
       prevProps.park?.latitude === nextProps.park?.latitude &&
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       prevProps.park?.longitude === nextProps.park?.longitude &&
       prevProps.parkBoundary?._id === nextProps.parkBoundary?._id &&
       prevProps.trails === nextProps.trails &&
       prevProps.campgrounds === nextProps.campgrounds
+=======
+      prevProps.park?.longitude === nextProps.park?.longitude
+>>>>>>> Stashed changes
 =======
       prevProps.park?.longitude === nextProps.park?.longitude
 >>>>>>> Stashed changes
@@ -359,8 +406,12 @@ const campgroundIcon = L.icon({
   shadowSize: [41, 41], // Adjust shadow size as needed
 });
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 //
 // const Plan: React.FC = () => {
+=======
+
+>>>>>>> Stashed changes
 =======
 
 >>>>>>> Stashed changes
@@ -384,9 +435,12 @@ const Plan: React.FC = () => {
   }));
   const [isChatOpen, setIsChatOpen] = useState(false);
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   const [parkBoundary, setParkBoundary] = useState<ParkBoundary | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
 =======
+=======
+>>>>>>> Stashed changes
   const [showItineraryForm, setShowItineraryForm] = useState(false);
   const [itineraryData, setItineraryData] = useState({
     date: "",
@@ -395,6 +449,9 @@ const Plan: React.FC = () => {
     people: "",
     transportation: "",
   });
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -618,6 +675,7 @@ const Plan: React.FC = () => {
   ]);
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   useEffect(() => {
     if (!parkCode) return;
 
@@ -642,6 +700,8 @@ const Plan: React.FC = () => {
     fetchParkBoundary();
   }, [parkCode]);
 
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
   const groupActivities = (activities: Array<{ id: string; name: string }>) => {
@@ -808,6 +868,7 @@ const Plan: React.FC = () => {
 
   const mapCenter = useMemo(() => [39.8283, -98.5795] as [number, number], []);
 
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
   const handleDownloadPDF = async () => {
     if (!state.currentPark || !mapRef.current) return;
@@ -1043,10 +1104,49 @@ const Plan: React.FC = () => {
     }
   };
 
+=======
+  const handleGeneratePDF = (itineraryContent: string) => {
+    const doc = new jsPDF();
+    doc.text("Generated Itinerary", 10, 10);
+    doc.text(itineraryContent, 10, 20);
+    doc.save("itinerary.pdf");
+  };
+
+  const handleItinerarySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post(
+        `${GEMINI_API_URL}/generate-itinerary`,
+        itineraryData,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${GEMINI_API_KEY}`, // Add the API key here
+          },
+        }
+      );
+
+      if (response.data && response.data.itinerary) {
+        handleGeneratePDF(response.data.itinerary);
+      } else {
+        console.error("Failed to generate itinerary: No content received");
+        alert("Failed to generate itinerary. Please try again later.");
+      }
+      setShowItineraryForm(false);
+    } catch (error) {
+      console.error("Error submitting itinerary:", error);
+      alert("Failed to submit itinerary. Please try again later.");
+    }
+  };
+
+>>>>>>> Stashed changes
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f5f2e8] to-[#d3d9cf] p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-4">
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
           <Link
             to="/explore"
@@ -1055,6 +1155,7 @@ const Plan: React.FC = () => {
             <FaArrowLeft className="text-sm" />
             <span>Back to Explore</span>
           </Link>
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 
           {state.currentPark && (
@@ -1292,6 +1393,9 @@ const Plan: React.FC = () => {
         </div>
 =======
         </div>
+=======
+        </div>
+>>>>>>> Stashed changes
 
         <h1 className="text-3xl font-bold mb-2 text-center text-[#4d5e56]">
           {state.currentPark
@@ -1578,6 +1682,9 @@ const Plan: React.FC = () => {
             </div>
           </>
         )}
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
       </div>
 
