@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  useMap,
+  GeoJSON,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
@@ -25,6 +32,65 @@ console.log("Environment variables:", {
   NODE_ENV: import.meta.env.NODE_ENV,
   API_URL,
 });
+
+interface ParkDesignation {
+  name: string;
+  description: string;
+  abbreviation: string;
+  id: string;
+}
+
+interface ParkAlias {
+  parkId: string;
+  current: boolean;
+  name: string;
+  id: string;
+}
+
+interface ParkBoundary {
+  _id: string;
+  parkCode: string;
+  boundaryData: {
+    type: "FeatureCollection";
+    features: Array<{
+      type: "Feature";
+      id: string;
+      geometry: {
+        type: "MultiPolygon";
+        coordinates: number[][][][];
+      };
+      properties: {
+        alternateName: string;
+        designationId: string;
+        designation: ParkDesignation;
+        aliases: ParkAlias[];
+        name: string;
+      };
+    }>;
+  };
+}
+
+interface StateBoundary {
+  geometry: {
+    type: "MultiPolygon";
+    coordinates: number[][][][];
+  };
+  name: string;
+  abbreviation: string;
+  id: string | null;
+}
+
+interface GeoJSONFeature {
+  type: "Feature";
+  geometry: {
+    type: "MultiPolygon";
+    coordinates: number[][][][];
+  };
+  properties: {
+    name: string;
+    stateCode: string;
+  };
+}
 
 interface Park {
   parkCode: string;
@@ -97,6 +163,12 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
 }) => {
   const map = useMap();
   const [parks, setParks] = useState<Park[]>([]);
+  const [selectedBoundary, setSelectedBoundary] = useState<ParkBoundary | null>(
+    null
+  );
+  const [stateBoundary, setStateBoundary] = useState<StateBoundary | null>(
+    null
+  );
 
   useEffect(() => {
     const fetchParks = async () => {
@@ -128,6 +200,51 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
   }, []);
 
   useEffect(() => {
+    const fetchParkBoundary = async () => {
+      if (selectedPark) {
+        try {
+          const token = localStorage.getItem("token");
+          const response = await fetch(
+            `${API_URL}/api/park-boundaries/${selectedPark}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const boundaryData = await response.json();
+          setSelectedBoundary(boundaryData);
+
+          // If boundary exists, fit the map to the boundary
+          if (
+            boundaryData &&
+            boundaryData.boundaryData &&
+            boundaryData.boundaryData.features[0]
+          ) {
+            const geoJsonLayer = L.geoJSON(
+              boundaryData.boundaryData.features[0]
+            );
+            const bounds = geoJsonLayer.getBounds();
+            map.fitBounds(bounds, { padding: [50, 50] });
+          }
+        } catch (error) {
+          console.error("Error fetching park boundary:", error);
+          setSelectedBoundary(null);
+        }
+      } else {
+        setSelectedBoundary(null);
+      }
+    };
+
+    fetchParkBoundary();
+  }, [selectedPark, map]);
+
+  useEffect(() => {
     if (selectedPark && parks.length > 0) {
       const selectedParkData = parks.find(
         (park) => park.parkCode === selectedPark
@@ -153,8 +270,148 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
     }
   }, [stateCode]);
 
+  useEffect(() => {
+    const fetchStateBoundary = async () => {
+      if (stateCode) {
+        try {
+          const token = localStorage.getItem("token");
+          const response = await fetch(
+            `${API_URL}/api/state-boundaries/${stateCode}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const boundaryData = await response.json();
+          console.log("State boundary data:", boundaryData);
+          setStateBoundary(boundaryData);
+
+          // If boundary exists, fit the map to the boundary
+          if (boundaryData?.geometry) {
+            const feature: GeoJSONFeature = {
+              type: "Feature",
+              geometry: boundaryData.geometry,
+              properties: {
+                name: boundaryData.name,
+                stateCode: boundaryData.abbreviation,
+              },
+            };
+            const geoJsonLayer = L.geoJSON(feature);
+            const bounds = geoJsonLayer.getBounds();
+            map.fitBounds(bounds, { padding: [50, 50] });
+          }
+        } catch (error) {
+          console.error("Error fetching state boundary:", error);
+          setStateBoundary(null);
+        }
+      } else {
+        setStateBoundary(null);
+      }
+    };
+
+    fetchStateBoundary();
+  }, [stateCode, map]);
+
+  const boundaryStyle = {
+    fillColor: "#97a88c",
+    fillOpacity: 0.2,
+    color: "#2B4C7E",
+    weight: 2,
+    opacity: 0.8,
+  };
+
+  const stateBoundaryStyle = {
+    fillColor: "#f5f2e8",
+    fillOpacity: 0.1,
+    color: "#97a88c",
+    weight: 2,
+    opacity: 0.8,
+  };
+
   return (
     <>
+      {stateBoundary?.geometry && (
+        <GeoJSON
+          key={stateBoundary.id || stateBoundary.abbreviation}
+          data={
+            {
+              type: "Feature",
+              geometry: stateBoundary.geometry,
+              properties: {
+                name: stateBoundary.name,
+                stateCode: stateBoundary.abbreviation,
+              },
+            } as GeoJSONFeature
+          }
+          style={stateBoundaryStyle}
+          onEachFeature={(feature, layer) => {
+            layer.on({
+              mouseover: (e) => {
+                const layer = e.target;
+                layer.setStyle({
+                  fillOpacity: 0.2,
+                  weight: 3,
+                  opacity: 1,
+                });
+              },
+              mouseout: (e) => {
+                const layer = e.target;
+                layer.setStyle(stateBoundaryStyle);
+              },
+            });
+
+            // Add popup with state info
+            layer.bindPopup(`
+              <div class="text-center">
+                <strong class="block text-[#2B4C7E] text-sm mb-1">
+                  ${feature.properties.name}
+                </strong>
+              </div>
+            `);
+          }}
+        />
+      )}
+      {selectedBoundary?.boundaryData?.features[0] && (
+        <GeoJSON
+          key={selectedBoundary._id}
+          data={selectedBoundary.boundaryData.features[0]}
+          style={boundaryStyle}
+          onEachFeature={(feature, layer) => {
+            layer.on({
+              mouseover: (e) => {
+                const layer = e.target;
+                layer.setStyle({
+                  fillOpacity: 0.4,
+                  weight: 3,
+                  opacity: 1,
+                });
+              },
+              mouseout: (e) => {
+                const layer = e.target;
+                layer.setStyle(boundaryStyle);
+              },
+            });
+
+            // Add popup with park info
+            layer.bindPopup(`
+              <div class="text-center">
+                <strong class="block text-[#2B4C7E] text-sm mb-1">
+                  ${feature.properties.name}
+                </strong>
+                <span class="text-xs text-gray-600">
+                  ${feature.properties.designation.name}
+                </span>
+              </div>
+            `);
+          }}
+        />
+      )}
       {parks.map((park) => {
         const lat = parseFloat(park.latitude);
         const lng = parseFloat(park.longitude);
