@@ -242,7 +242,7 @@ const Home: React.FC = () => {
       </div>
 
       {/* Stats Dashboard */}
-      <div className="absolute left-[400px] top-48 grid grid-cols-6 gap-12 w-[1200px]">
+      <div className="absolute left-[400px] top-48 grid grid-cols-6 gap-8 w-[1000px]">
         {loading ? (
           <div className="col-span-6 text-[#DCD7C9] text-center">
             <p className="text-2xl">Loading your adventure stats...</p>
@@ -254,53 +254,53 @@ const Home: React.FC = () => {
         ) : (
           <>
             {/* First row - 3 cards */}
-            <div className="bg-[#DCD7C9] rounded-lg p-8 text-center col-span-2 shadow-lg">
-              <FaGlobeAmericas className="w-20 h-20 mx-auto text-[#2C3930]" />
-              <h2 className="text-6xl font-extrabold text-[#2C3930] my-4">
+            <div className="bg-[#DCD7C9] rounded-lg p-6 text-center col-span-2 shadow-lg">
+              <FaGlobeAmericas className="w-16 h-16 mx-auto text-[#2C3930]" />
+              <h2 className="text-5xl font-extrabold text-[#2C3930] my-3">
                 {userStats.totalTripsPlanned}
               </h2>
-              <p className="text-xl font-bold text-[#2C3930] underline">
+              <p className="text-lg font-bold text-[#2C3930] underline">
                 Total Trips Planned
               </p>
             </div>
 
-            <div className="bg-[#DCD7C9] rounded-lg p-8 text-center col-span-2 shadow-lg">
-              <FaMountain className="w-20 h-20 mx-auto text-[#2C3930]" />
-              <h2 className="text-6xl font-extrabold text-[#2C3930] my-4">
+            <div className="bg-[#DCD7C9] rounded-lg p-6 text-center col-span-2 shadow-lg">
+              <FaMountain className="w-16 h-16 mx-auto text-[#2C3930]" />
+              <h2 className="text-5xl font-extrabold text-[#2C3930] my-3">
                 {userStats.nationalParksVisited}
               </h2>
-              <p className="text-xl font-bold text-[#2C3930] underline">
+              <p className="text-lg font-bold text-[#2C3930] underline">
                 National Parks Visited
               </p>
             </div>
 
-            <div className="bg-[#DCD7C9] rounded-lg p-8 text-center col-span-2 shadow-lg">
-              <FaTree className="w-20 h-20 mx-auto text-[#2C3930]" />
-              <h2 className="text-6xl font-extrabold text-[#2C3930] my-4">
+            <div className="bg-[#DCD7C9] rounded-lg p-6 text-center col-span-2 shadow-lg">
+              <FaTree className="w-16 h-16 mx-auto text-[#2C3930]" />
+              <h2 className="text-5xl font-extrabold text-[#2C3930] my-3">
                 {userStats.stateParksVisited}
               </h2>
-              <p className="text-xl font-bold text-[#2C3930] underline">
+              <p className="text-lg font-bold text-[#2C3930] underline">
                 State Parks Visited
               </p>
             </div>
 
             {/* Second row - 2 cards centered */}
-            <div className="bg-[#DCD7C9] rounded-lg p-8 text-center col-start-2 col-span-2 shadow-lg">
-              <FaRoute className="w-20 h-20 mx-auto text-[#2C3930]" />
-              <h2 className="text-6xl font-extrabold text-[#2C3930] my-4">
+            <div className="bg-[#DCD7C9] rounded-lg p-6 text-center col-start-2 col-span-2 shadow-lg">
+              <FaRoute className="w-16 h-16 mx-auto text-[#2C3930]" />
+              <h2 className="text-5xl font-extrabold text-[#2C3930] my-3">
                 {userStats.milesOfTrailsPlanned}
               </h2>
-              <p className="text-xl font-bold text-[#2C3930] underline">
+              <p className="text-lg font-bold text-[#2C3930] underline">
                 Miles of Trails Planned
               </p>
             </div>
 
-            <div className="bg-[#DCD7C9] rounded-lg p-8 text-center col-start-4 col-span-2 shadow-lg">
-              <FaCampground className="w-20 h-20 mx-auto text-[#2C3930]" />
-              <h2 className="text-6xl font-extrabold text-[#2C3930] my-4">
+            <div className="bg-[#DCD7C9] rounded-lg p-6 text-center col-start-4 col-span-2 shadow-lg">
+              <FaCampground className="w-16 h-16 mx-auto text-[#2C3930]" />
+              <h2 className="text-5xl font-extrabold text-[#2C3930] my-3">
                 {userStats.campgroundsStayed}
               </h2>
-              <p className="text-xl font-bold text-[#2C3930] underline">
+              <p className="text-lg font-bold text-[#2C3930] underline">
                 Campgrounds Stayed
               </p>
             </div>

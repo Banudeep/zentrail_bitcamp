@@ -12,7 +12,6 @@ import {
   FaCampground,
   FaComments,
   FaTimes,
-  FaDownload,
 } from "react-icons/fa";
 import {
   MapContainer,
@@ -28,8 +27,6 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import axios from "axios";
 import Logger from "../../utils/logger";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 
 interface Park {
   name: string;
@@ -150,59 +147,39 @@ const transformToGeoJSON = (trail: any): Trail | null => {
   }
 };
 
-const MapController: React.FC<{
-  park: Park | null;
-  parkBoundary: ParkBoundary | null;
-}> = React.memo(
-  ({ park, parkBoundary }) => {
+const MapController: React.FC<{ park: Park | null }> = React.memo(
+  ({ park }) => {
     const map = useMap();
 
     useEffect(() => {
-      if (parkBoundary?.boundaryData?.features[0] && map) {
-        try {
-          const geoJsonLayer = L.geoJSON(parkBoundary.boundaryData.features[0]);
-          const bounds = geoJsonLayer.getBounds();
-          map.fitBounds(bounds, {
-            padding: [50, 50],
-            maxZoom: 12,
-            animate: true,
-          });
-        } catch (error) {
-          console.error("Error fitting bounds:", error);
-          // Fallback to center on park coordinates if bounds fitting fails
-          if (park) {
-            const lat = parseFloat(park.latitude);
-            const lng = parseFloat(park.longitude);
-            if (!isNaN(lat) && !isNaN(lng)) {
-              map.setView([lat, lng], 12, { animate: true });
-            }
-          }
-        }
-      } else if (park && map) {
+      if (park && map) {
         const lat = parseFloat(park.latitude);
         const lng = parseFloat(park.longitude);
         if (!isNaN(lat) && !isNaN(lng)) {
-          map.setView([lat, lng], 12, { animate: true });
+          try {
+            map.setView([lat, lng], 12, { animate: false });
+          } catch (error) {
+            console.error("Error setting map view:", error);
+          }
         }
       }
       return () => {
         if (map) {
           try {
-            map.setView([39.8283, -98.5795], 4, { animate: true });
+            map.setView([39.8283, -98.5795], 4, { animate: false });
           } catch (error) {
             console.error("Error resetting map view:", error);
           }
         }
       };
-    }, [park?.latitude, park?.longitude, parkBoundary, map]);
+    }, [park?.latitude, park?.longitude, map]);
 
     return null;
   },
   (prevProps, nextProps) => {
     return (
       prevProps.park?.latitude === nextProps.park?.latitude &&
-      prevProps.park?.longitude === nextProps.park?.longitude &&
-      prevProps.parkBoundary?._id === nextProps.parkBoundary?._id
+      prevProps.park?.longitude === nextProps.park?.longitude
     );
   }
 );
@@ -279,7 +256,6 @@ const Plan: React.FC = () => {
   }));
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [parkBoundary, setParkBoundary] = useState<ParkBoundary | null>(null);
-  const mapRef = useRef<HTMLDivElement>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout>();
@@ -697,97 +673,10 @@ const Plan: React.FC = () => {
     opacity: 0.8,
   };
 
-  const handleDownloadPDF = async () => {
-    if (!state.currentPark || !mapRef.current) return;
-
-    try {
-      setState((prev) => ({ ...prev, loading: true }));
-
-      // Capture the map
-      const mapCanvas = await html2canvas(mapRef.current, {
-        useCORS: true,
-        allowTaint: true,
-        scrollY: -window.scrollY,
-      });
-
-      // Create PDF
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-
-      // Add park name
-      pdf.setFontSize(24);
-      pdf.setTextColor(45, 89, 39); // Dark green color
-      pdf.text(state.currentPark.name, pageWidth / 2, 20, { align: "center" });
-
-      // Add description
-      pdf.setFontSize(12);
-      pdf.setTextColor(0);
-      const splitDescription = pdf.splitTextToSize(
-        state.currentPark.description,
-        pageWidth - 20
-      );
-      pdf.text(splitDescription, 10, 35);
-
-      // Add map image
-      const mapImage = mapCanvas.toDataURL("image/jpeg", 1.0);
-      const mapHeight = (pageWidth * mapCanvas.height) / mapCanvas.width;
-      pdf.addImage(mapImage, "JPEG", 10, 80, pageWidth - 20, mapHeight * 0.6);
-
-      // Add activities
-      let yPosition = 80 + mapHeight * 0.6 + 10;
-      pdf.setFontSize(16);
-      pdf.setTextColor(45, 89, 39);
-      pdf.text("Available Activities", 10, yPosition);
-
-      yPosition += 10;
-      pdf.setFontSize(12);
-      pdf.setTextColor(0);
-
-      const groupedActivities = groupActivities(state.parkActivities);
-      Object.entries(groupedActivities).forEach(([category, activities]) => {
-        if (yPosition > pageHeight - 20) {
-          pdf.addPage();
-          yPosition = 20;
-        }
-
-        pdf.setFontSize(14);
-        pdf.setTextColor(43, 76, 126); // Blue color
-        pdf.text(
-          category.charAt(0).toUpperCase() + category.slice(1),
-          10,
-          yPosition
-        );
-
-        yPosition += 6;
-        pdf.setFontSize(12);
-        pdf.setTextColor(0);
-
-        activities.forEach((activity) => {
-          if (yPosition > pageHeight - 20) {
-            pdf.addPage();
-            yPosition = 20;
-          }
-          pdf.text(`• ${activity.name}`, 15, yPosition);
-          yPosition += 6;
-        });
-
-        yPosition += 4;
-      });
-
-      // Save the PDF
-      pdf.save(`${state.currentPark.name.replace(/\s+/g, "_")}_guide.pdf`);
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-    } finally {
-      setState((prev) => ({ ...prev, loading: false }));
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f5f2e8] to-[#d3d9cf] p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-4 flex justify-between items-center">
+        <div className="mb-4">
           <Link
             to="/explore"
             className="inline-flex items-center gap-2 text-[#4d5e56] hover:text-[#97a88c] transition-colors duration-200"
@@ -795,19 +684,6 @@ const Plan: React.FC = () => {
             <FaArrowLeft className="text-sm" />
             <span>Back to Explore</span>
           </Link>
-
-          {state.currentPark && (
-            <button
-              onClick={handleDownloadPDF}
-              disabled={state.loading}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#2B4C7E] text-white rounded-lg hover:bg-[#1A365D] transition-colors duration-200 disabled:opacity-50"
-            >
-              <FaDownload className="text-sm" />
-              <span>
-                {state.loading ? "Generating PDF..." : "Download Park Guide"}
-              </span>
-            </button>
-          )}
         </div>
 
         <h1 className="text-3xl font-bold mb-2 text-center text-[#4d5e56]">
@@ -917,11 +793,11 @@ const Plan: React.FC = () => {
               )}
             </div>
 
-            <div ref={mapRef} className="h-[800px]">
+            <div className="h-[800px]">
               <MapContainer
                 key={state.currentPark?.parkCode || "default"}
                 center={mapCenter}
-                zoom={4}
+                zoom={1}
                 style={{ height: "100%", width: "100%" }}
                 scrollWheelZoom={true}
                 attributionControl={false}
@@ -930,10 +806,7 @@ const Plan: React.FC = () => {
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 />
-                <MapController
-                  park={state.currentPark}
-                  parkBoundary={parkBoundary}
-                />
+                <MapController park={state.currentPark} />
 
                 {parkBoundary?.boundaryData?.features[0] && (
                   <GeoJSON
