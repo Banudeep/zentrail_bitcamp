@@ -97,6 +97,15 @@ interface Park {
   name: string;
   latitude: string;
   longitude: string;
+  states: string;
+  designation: string;
+  description: string;
+  images: {
+    url: string;
+    title: string;
+    caption: string;
+    credit: string;
+  }[];
 }
 
 interface ParkMapProps {
@@ -426,13 +435,32 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
               zIndexOffset={selectedPark === park.parkCode ? 1000 : 0}
             >
               <Popup>
-                <div className="text-center">
-                  <strong className="block text-[#2B4C7E] text-sm mb-1">
+                <div className="text-center p-2 max-w-xs">
+                  <strong className="block text-[#2B4C7E] text-base mb-2">
                     {park.name}
                   </strong>
-                  <span className="text-xs text-gray-600">
-                    Click for details
-                  </span>
+                  {park.images && park.images.length > 0 && (
+                    <img
+                      src={park.images[0].url}
+                      alt={park.images[0].title}
+                      className="w-full h-32 object-cover rounded-lg mb-2"
+                    />
+                  )}
+                  <div className="text-sm text-gray-700 mb-2">
+                    <div className="mb-1">
+                      <span className="font-medium">State: </span>
+                      {park.states}
+                    </div>
+                    <div className="mb-1">
+                      <span className="font-medium">Designation: </span>
+                      {park.designation}
+                    </div>
+                    {park.description && (
+                      <p className="text-xs mt-2 text-gray-600 line-clamp-3">
+                        {park.description}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </Popup>
             </Marker>
