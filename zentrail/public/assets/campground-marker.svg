@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32" height="42" viewBox="0 0 32 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Drop shadow -->
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur in="SourceAlpha" stdDeviation="1"/>
+    <feOffset dx="0" dy="1"/>
+    <feComponentTransfer>
+      <feFuncA type="linear" slope="0.3"/>
+    </feComponentTransfer>
+    <feMerge>
+      <feMergeNode/>
+      <feMergeNode in="SourceGraphic"/>
+    </feMerge>
+  </filter>
+  
+  <!-- Pin base -->
+  <path d="M16 42L21.5 32H10.5L16 42Z" fill="#8B4513"/>
+  <path d="M32 16C32 24.8366 16 38 16 38C16 38 0 24.8366 0 16C0 7.16344 7.16344 0 16 0C24.8366 0 32 7.16344 32 16Z" fill="#8B4513"/>
+  
+  <!-- Campground tent icon (minimalistic) -->
+  <g transform="translate(8,8)" filter="url(#shadow)">
+    <path d="M8 4L16 16H0L8 4Z" fill="white"/>
+    <path d="M5 16V12L8 8L11 12V16H5Z" fill="white"/>
+  </g>
+</svg>

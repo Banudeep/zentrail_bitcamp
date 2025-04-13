@@ -10,6 +10,7 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { FaHiking } from "react-icons/fa";
+import { FaCampground } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 
 // Create custom park icon
@@ -26,6 +27,14 @@ const highlightedParkIcon = L.icon({
   iconSize: [40, 52],
   iconAnchor: [20, 52], // Bottom center of the pin
   popupAnchor: [0, -52], // Top center of the pin
+});
+
+// Create campground icon
+const campgroundIcon = L.icon({
+  iconUrl: "/assets/campground-marker.svg",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
 });
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5002";
@@ -135,6 +144,23 @@ interface TrailFeature {
   };
 }
 
+interface Campground {
+  name: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  type: string;
+  amenities: string[];
+  accessibility: {
+    wheelchairAccess: boolean;
+    internetInfo: string;
+    cellPhoneInfo: string;
+    rvAllowed: boolean;
+    rvInfo: string;
+    additionalInfo: string;
+  };
+}
+
 interface Trail extends TrailFeature {
   _id: string;
 }
@@ -228,6 +254,8 @@ const MapZoomHandler: React.FC<{
   const [trails, setTrails] = useState<TrailFeature[]>([]);
   const [showTrails, setShowTrails] = useState(false);
   const [isProcessingTrails, setIsProcessingTrails] = useState(false);
+  const [campgrounds, setCampgrounds] = useState<Campground[]>([]);
+  const [showCampgrounds, setShowCampgrounds] = useState(false);
 
   // Cleanup function for abortion of fetch requests
   const abortController = React.useRef<AbortController | null>(null);
@@ -239,6 +267,34 @@ const MapZoomHandler: React.FC<{
       }
     };
   }, []);
+
+  const fetchCampgrounds = React.useCallback(async () => {
+    if (!selectedPark) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_URL}/api/campgrounds/park/${selectedPark}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const campgroundData = await response.json();
+      setCampgrounds(campgroundData || []);
+    } catch (error) {
+      console.error("Error fetching campgrounds:", error);
+      setCampgrounds([]);
+    }
+  }, [selectedPark]);
+
+  useEffect(() => {
+    fetchCampgrounds();
+  }, [fetchCampgrounds]);
 
   const fetchTrails = React.useCallback(async () => {
     if (!selectedPark || isProcessingTrails) return;
@@ -553,7 +609,7 @@ const MapZoomHandler: React.FC<{
   return (
     <>
       {/* Add trail toggle button */}
-      <div className="absolute top-4 right-4 z-[1000] bg-white p-2 rounded-lg shadow-lg">
+      <div className="absolute top-4 right-4 z-[1000] bg-white p-2 rounded-lg shadow-lg flex flex-row gap-2">
         <button
           onClick={() => setShowTrails(!showTrails)}
           className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-200 ${
@@ -565,10 +621,22 @@ const MapZoomHandler: React.FC<{
             {showTrails ? "Hide Trails" : "Show Trails"}
           </span>
         </button>
+
+        <button
+          onClick={() => setShowCampgrounds(!showCampgrounds)}
+          className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-200 ${
+            showCampgrounds ? "bg-[#FFA726] text-white" : "bg-gray-100 text-gray-700"
+          }`}
+        >
+          <FaCampground className="text-lg" />
+          <span className="text-sm font-medium">
+            {showCampgrounds ? "Hide Campgrounds" : "Show Campgrounds"}
+          </span>
+        </button>
         
         {/* Trail difficulty legend */}
         {showTrails && (
-          <div className="mt-2 p-2 border-t border-gray-200">
+          <div className="absolute top-full right-0 mt-2 bg-white p-2 rounded-lg shadow-lg">
             <div className="text-sm font-medium mb-1">Trail Difficulty:</div>
             <div className="flex items-center gap-2 mb-1">
               <div className="w-4 h-1 bg-[#4CAF50]"></div>
@@ -754,6 +822,58 @@ const MapZoomHandler: React.FC<{
             }}
           />
         ))}
+      {showCampgrounds &&
+        campgrounds.map((campground, index) => (
+          <Marker
+            key={`campground-${index}-${campground.name}`}
+            position={[campground.latitude, campground.longitude]}
+            icon={campgroundIcon}
+            eventHandlers={{
+              click: () => {
+                map.setView([campground.latitude, campground.longitude], 12, {
+                  animate: true,
+                  duration: 1,
+                });
+              },
+              mouseover: (e) => {
+                const marker = e.target;
+                marker.openPopup();
+              },
+            }}
+          >
+            <Popup>
+              <div className="text-center min-w-[250px]">
+                <strong className="block text-[#FFA726] text-lg mb-2">
+                  {campground.name}
+                </strong>
+                <div className="text-xs text-gray-600">
+                  <p className="mb-1">
+                    <span className="font-medium">Type:</span> {campground.type}
+                  </p>
+                  {campground.amenities && campground.amenities.length > 0 && (
+                    <p className="mb-1">
+                      <span className="font-medium">Amenities:</span>{" "}
+                      {campground.amenities.join(", ")}
+                    </p>
+                  )}
+                  {campground.accessibility && (
+                    <>
+                      {campground.accessibility.wheelchairAccess && (
+                        <p className="mb-1">♿ Wheelchair Accessible</p>
+                      )}
+                      {campground.accessibility.rvAllowed && (
+                        <p className="mb-1">🚐 RV Allowed</p>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="text-xs text-gray-600 mt-2 mb-3">
+                  <p className="line-clamp-2">{campground.description}</p>
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
       {parks.map((park) => {
         const lat = parseFloat(park.latitude);
         const lng = parseFloat(park.longitude);
@@ -768,6 +888,7 @@ const MapZoomHandler: React.FC<{
               zIndexOffset={selectedPark === park.parkCode ? 1000 : 0}
               eventHandlers={{
                 click: () => {
+                  onParkSelect(park.parkCode);
                   map.setView([lat, lng], 10, {
                     animate: true,
                     duration: 1,

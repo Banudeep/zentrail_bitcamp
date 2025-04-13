@@ -165,7 +165,7 @@ const getTrailStyle = (feature: Feature<Geometry> | undefined): PathOptions => {
     return { ...baseStyle, color: '#9E9E9E' };
 };
 const campgroundIcon = L.icon({
-    iconUrl: '/path/to/campground-icon.png', // Replace with the actual path to your icon
+    iconUrl: '/assets/campground-marker.svg', // Replace with the actual path to your icon
     iconSize: [25, 41], // Adjust size as needed
     iconAnchor: [12, 41], // Adjust anchor point as needed
     popupAnchor: [1, -34], // Adjust popup anchor as needed
@@ -562,6 +562,25 @@ const Plan: React.FC = () => {
                                 <FaCampground className="text-lg" />
                                 <span className="text-sm font-medium">Campgrounds</span>
                             </button>
+
+                            {/* Trail difficulty legend popup */}
+                            {state.showTrails && (
+                                <div className="absolute top-full right-0 mt-2 bg-white p-2 rounded-lg shadow-lg">
+                                    <div className="text-sm font-medium mb-1">Trail Difficulty:</div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className="w-4 h-1 bg-[#4CAF50]"></div>
+                                        <span className="text-xs">Easy</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className="w-4 h-1 bg-[#FFA726]"></div>
+                                        <span className="text-xs">Moderate</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-4 h-1 bg-[#E53935]"></div>
+                                        <span className="text-xs">Difficult</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="h-[800px]">
