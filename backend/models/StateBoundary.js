@@ -18,8 +18,22 @@ const stateBoundarySchema = new mongoose.Schema(
         required: true,
       },
       coordinates: {
-        type: [[[Number]]],
+        type: [[[[Number]]]],
         required: true,
+        get: function (coords) {
+          if (!coords) return coords;
+          return coords.map((polygon) =>
+            polygon.map((ring) =>
+              ring.map((point) =>
+                point.map((coord) =>
+                  typeof coord === "object" && coord.$numberDouble
+                    ? parseFloat(coord.$numberDouble)
+                    : coord
+                )
+              )
+            )
+          );
+        },
       },
     },
   },
