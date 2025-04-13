@@ -12,6 +12,7 @@ import {
   FaCampground,
   FaComments,
   FaTimes,
+  FaDownload,
 } from "react-icons/fa";
 import {
   MapContainer,
@@ -21,12 +22,14 @@ import {
   Popup,
   useMap,
 } from "react-leaflet";
-import { Feature, Geometry } from "geojson";
+import { Feature, Geometry, FeatureCollection } from "geojson";
 import { PathOptions } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import axios from "axios";
 import Logger from "../../utils/logger";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 interface Park {
   name: string;
@@ -147,39 +150,110 @@ const transformToGeoJSON = (trail: any): Trail | null => {
   }
 };
 
-const MapController: React.FC<{ park: Park | null }> = React.memo(
-  ({ park }) => {
+const boundaryStyle = {
+  fillColor: "#2C3930",
+  fillOpacity: 0.15,
+  color: "#2C3930",
+  weight: 2.5,
+  opacity: 0.9,
+};
+
+const MapController: React.FC<{
+  park: Park | null;
+  parkBoundary: ParkBoundary | null;
+  trails: Trail[];
+  campgrounds: Campground[];
+}> = React.memo(
+  ({ park, parkBoundary, trails, campgrounds }) => {
     const map = useMap();
+    const initialBoundSet = useRef(false);
 
     useEffect(() => {
-      if (park && map) {
-        const lat = parseFloat(park.latitude);
-        const lng = parseFloat(park.longitude);
-        if (!isNaN(lat) && !isNaN(lng)) {
-          try {
-            map.setView([lat, lng], 12, { animate: false });
-          } catch (error) {
-            console.error("Error setting map view:", error);
+      if (!map || initialBoundSet.current) return;
+
+      try {
+        const bounds = L.latLngBounds([]);
+        let hasFeatures = false;
+
+        // Add park boundary to bounds
+        if (parkBoundary?.boundaryData?.features[0]) {
+          const boundaryLayer = L.geoJSON(
+            parkBoundary.boundaryData.features[0]
+          );
+          bounds.extend(boundaryLayer.getBounds());
+          hasFeatures = true;
+        }
+
+        // Add trails to bounds
+        if (trails.length > 0) {
+          const trailsCollection: FeatureCollection = {
+            type: "FeatureCollection",
+            features: trails as Feature[],
+          };
+          const trailsLayer = L.geoJSON(trailsCollection);
+          bounds.extend(trailsLayer.getBounds());
+          hasFeatures = true;
+        }
+
+        // Add campgrounds to bounds
+        if (campgrounds.length > 0) {
+          campgrounds.forEach((campground) => {
+            bounds.extend([campground.latitude, campground.longitude]);
+          });
+          hasFeatures = true;
+        }
+
+        if (hasFeatures) {
+          // Fit the map to the bounds with some padding
+          map.fitBounds(bounds, {
+            padding: [100, 100],
+            maxZoom: 12,
+            animate: true,
+          });
+          initialBoundSet.current = true;
+        } else if (park) {
+          // Fallback to park center if no features
+          const lat = parseFloat(park.latitude);
+          const lng = parseFloat(park.longitude);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            map.setView([lat, lng], 11, { animate: true });
+            initialBoundSet.current = true;
+          }
+        }
+      } catch (error) {
+        console.error("Error setting map view:", error);
+        // Fallback to park center if error occurs
+        if (park) {
+          const lat = parseFloat(park.latitude);
+          const lng = parseFloat(park.longitude);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            map.setView([lat, lng], 11, { animate: true });
+            initialBoundSet.current = true;
           }
         }
       }
+
       return () => {
         if (map) {
           try {
-            map.setView([39.8283, -98.5795], 4, { animate: false });
+            initialBoundSet.current = false;
+            map.setView([39.8283, -98.5795], 4, { animate: true });
           } catch (error) {
             console.error("Error resetting map view:", error);
           }
         }
       };
-    }, [park?.latitude, park?.longitude, map]);
+    }, [map, park, parkBoundary, trails, campgrounds]);
 
     return null;
   },
   (prevProps, nextProps) => {
     return (
       prevProps.park?.latitude === nextProps.park?.latitude &&
-      prevProps.park?.longitude === nextProps.park?.longitude
+      prevProps.park?.longitude === nextProps.park?.longitude &&
+      prevProps.parkBoundary?._id === nextProps.parkBoundary?._id &&
+      prevProps.trails === nextProps.trails &&
+      prevProps.campgrounds === nextProps.campgrounds
     );
   }
 );
@@ -256,6 +330,7 @@ const Plan: React.FC = () => {
   }));
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [parkBoundary, setParkBoundary] = useState<ParkBoundary | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout>();
@@ -665,18 +740,97 @@ const Plan: React.FC = () => {
 
   const mapCenter = useMemo(() => [39.8283, -98.5795] as [number, number], []);
 
-  const boundaryStyle = {
-    fillColor: "#2d5a27",
-    fillOpacity: 0.2,
-    color: "#2d5a27",
-    weight: 2,
-    opacity: 0.8,
+  const handleDownloadPDF = async () => {
+    if (!state.currentPark || !mapRef.current) return;
+
+    try {
+      setState((prev) => ({ ...prev, loading: true }));
+
+      // Capture the map
+      const mapCanvas = await html2canvas(mapRef.current, {
+        useCORS: true,
+        allowTaint: true,
+        scrollY: -window.scrollY,
+      });
+
+      // Create PDF
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      // Add park name
+      pdf.setFontSize(24);
+      pdf.setTextColor(45, 89, 39); // Dark green color
+      pdf.text(state.currentPark.name, pageWidth / 2, 20, { align: "center" });
+
+      // Add description
+      pdf.setFontSize(12);
+      pdf.setTextColor(0);
+      const splitDescription = pdf.splitTextToSize(
+        state.currentPark.description,
+        pageWidth - 20
+      );
+      pdf.text(splitDescription, 10, 35);
+
+      // Add map image
+      const mapImage = mapCanvas.toDataURL("image/jpeg", 1.0);
+      const mapHeight = (pageWidth * mapCanvas.height) / mapCanvas.width;
+      pdf.addImage(mapImage, "JPEG", 10, 80, pageWidth - 20, mapHeight * 0.6);
+
+      // Add activities
+      let yPosition = 80 + mapHeight * 0.6 + 10;
+      pdf.setFontSize(16);
+      pdf.setTextColor(45, 89, 39);
+      pdf.text("Available Activities", 10, yPosition);
+
+      yPosition += 10;
+      pdf.setFontSize(12);
+      pdf.setTextColor(0);
+
+      const groupedActivities = groupActivities(state.parkActivities);
+      Object.entries(groupedActivities).forEach(([category, activities]) => {
+        if (yPosition > pageHeight - 20) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+
+        pdf.setFontSize(14);
+        pdf.setTextColor(43, 76, 126); // Blue color
+        pdf.text(
+          category.charAt(0).toUpperCase() + category.slice(1),
+          10,
+          yPosition
+        );
+
+        yPosition += 6;
+        pdf.setFontSize(12);
+        pdf.setTextColor(0);
+
+        activities.forEach((activity) => {
+          if (yPosition > pageHeight - 20) {
+            pdf.addPage();
+            yPosition = 20;
+          }
+          pdf.text(`• ${activity.name}`, 15, yPosition);
+          yPosition += 6;
+        });
+
+        yPosition += 4;
+      });
+
+      // Save the PDF
+      pdf.save(`${state.currentPark.name.replace(/\s+/g, "_")}_guide.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    } finally {
+      setState((prev) => ({ ...prev, loading: false }));
+    }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#f5f2e8] to-[#d3d9cf] p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-4">
+        <div className="mb-4 flex justify-between items-center">
           <Link
             to="/explore"
             className="inline-flex items-center gap-2 text-[#4d5e56] hover:text-[#97a88c] transition-colors duration-200"
@@ -684,6 +838,19 @@ const Plan: React.FC = () => {
             <FaArrowLeft className="text-sm" />
             <span>Back to Explore</span>
           </Link>
+
+          {state.currentPark && (
+            <button
+              onClick={handleDownloadPDF}
+              disabled={state.loading}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#2B4C7E] text-white rounded-lg hover:bg-[#1A365D] transition-colors duration-200 disabled:opacity-50"
+            >
+              <FaDownload className="text-sm" />
+              <span>
+                {state.loading ? "Generating PDF..." : "Download Park Guide"}
+              </span>
+            </button>
+          )}
         </div>
 
         <h1 className="text-3xl font-bold mb-2 text-center text-[#4d5e56]">
@@ -793,11 +960,11 @@ const Plan: React.FC = () => {
               )}
             </div>
 
-            <div className="h-[800px]">
+            <div ref={mapRef} className="h-[800px]">
               <MapContainer
                 key={state.currentPark?.parkCode || "default"}
                 center={mapCenter}
-                zoom={1}
+                zoom={4}
                 style={{ height: "100%", width: "100%" }}
                 scrollWheelZoom={true}
                 attributionControl={false}
@@ -806,7 +973,12 @@ const Plan: React.FC = () => {
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 />
-                <MapController park={state.currentPark} />
+                <MapController
+                  park={state.currentPark}
+                  parkBoundary={parkBoundary}
+                  trails={state.trails}
+                  campgrounds={state.campgrounds}
+                />
 
                 {parkBoundary?.boundaryData?.features[0] && (
                   <GeoJSON
@@ -818,7 +990,9 @@ const Plan: React.FC = () => {
                         mouseover: (e) => {
                           const layer = e.target;
                           layer.setStyle({
-                            fillOpacity: 0.4,
+                            fillColor: "#2C3930",
+                            fillOpacity: 0.3,
+                            color: "#2C3930",
                             weight: 3,
                             opacity: 1,
                           });
@@ -830,15 +1004,15 @@ const Plan: React.FC = () => {
                       });
 
                       layer.bindPopup(`
-                                                <div class="text-center">
-                                                    <strong class="block text-[#2d5a27] text-sm mb-1">
-                                                        ${feature.properties.name}
-                                                    </strong>
-                                                    <span class="text-xs text-gray-600">
-                                                        ${feature.properties.designation.name}
-                                                    </span>
-                                                </div>
-                                            `);
+                        <div class="text-center">
+                          <strong class="block text-[#2C3930] text-sm mb-1">
+                            ${feature.properties.name}
+                          </strong>
+                          <span class="text-xs text-gray-600">
+                            ${feature.properties.designation.name}
+                          </span>
+                        </div>
+                      `);
                     }}
                   />
                 )}
