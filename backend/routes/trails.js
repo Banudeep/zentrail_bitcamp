@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Trail = require("../models/Trail");
-
+//
 // Helper function to convert MongoDB number objects to regular numbers
 const convertMongoNumbers = (trail) => {
   if (trail.properties && trail.properties.OBJECTID) {
