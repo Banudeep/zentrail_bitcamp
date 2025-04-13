@@ -176,7 +176,7 @@ const Home: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-screen relative bg-[#f5f2e8] overflow-hidden">
+    <div className="w-full h-screen relative bg-[#DCD7C9] overflow-hidden">
       {/* Background Image with overlay */}
       <div className="absolute inset-0">
         <img
@@ -184,39 +184,39 @@ const Home: React.FC = () => {
           alt="Yosemite El Capitan"
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-[#4d5e56]/40"></div>
+        <div className="absolute inset-0 bg-[#2C3930]/40"></div>
       </div>
 
       {/* Left Navigation Menu */}
-      <div className="w-48 h-full left-24 top-48 absolute">
-        <div className="bg-[#4d5e56] p-4 rounded-lg space-y-6">
+      <div className="w-56 h-full left-24 top-48 absolute">
+        <div className="bg-[#2C3930] p-6 rounded-lg space-y-6">
           <button
             onClick={() => navigate("/Home")}
-            className="w-full text-[#f5f2e8] text-xl font-bold py-4 hover:bg-[#97a88c] rounded transition-colors"
+            className="w-full text-[#DCD7C9] text-2xl font-bold py-5 hover:bg-[#3F4F44] rounded transition-colors"
           >
             Home
           </button>
           <button
             onClick={() => navigate("/explore")}
-            className="w-full text-[#f5f2e8] text-xl font-bold py-4 hover:bg-[#97a88c] rounded transition-colors"
+            className="w-full text-[#DCD7C9] text-2xl font-bold py-5 hover:bg-[#3F4F44] rounded transition-colors"
           >
             Explore Parks
           </button>
           <button
             onClick={() => navigate("/plan")}
-            className="w-full text-[#f5f2e8] text-xl font-bold py-4 hover:bg-[#97a88c] rounded transition-colors"
+            className="w-full text-[#DCD7C9] text-2xl font-bold py-5 hover:bg-[#3F4F44] rounded transition-colors"
           >
             Plan Itinerary
           </button>
           <button
             onClick={() => navigate("/settings")}
-            className="w-full text-[#f5f2e8] text-xl font-bold py-4 hover:bg-[#97a88c] rounded transition-colors"
+            className="w-full text-[#DCD7C9] text-2xl font-bold py-5 hover:bg-[#3F4F44] rounded transition-colors"
           >
             Settings
           </button>
           <button
             onClick={handleSignOut}
-            className="w-full text-[#f5f2e8] text-xl font-bold py-4 hover:bg-[#97a88c] rounded transition-colors"
+            className="w-full text-[#DCD7C9] text-2xl font-bold py-5 hover:bg-[#3F4F44] rounded transition-colors"
           >
             Sign Out
           </button>
@@ -231,76 +231,76 @@ const Home: React.FC = () => {
       />
 
       {/* Welcome Text */}
-      <div className="absolute left-80 top-16 text-[#f5f2e8]">
-        <h1 className="text-5xl font-['Kaushan Script'] mb-4">
+      <div className="absolute left-[400px] top-8 text-[#DCD7C9]">
+        <h1 className="text-6xl font-['Kaushan Script'] mb-2 drop-shadow-lg">
           ZenTrail Welcomes You{" "}
           {user.firstName ? `- ${user.firstName} ${user.lastName}` : ""}
         </h1>
-        <p className="text-2xl font-['Kaushan Script']">
+        <p className="text-3xl font-['Kaushan Script'] [text-shadow:_0_2px_4px_rgba(0,0,0,0.5)] mb-12">
           Let's build a trail that fits your soul!
         </p>
       </div>
 
       {/* Stats Dashboard */}
-      <div className="absolute left-80 top-48 grid grid-cols-3 gap-8 max-w-6xl">
+      <div className="absolute left-[400px] top-48 grid grid-cols-6 gap-12 w-[1200px]">
         {loading ? (
-          <div className="col-span-3 text-[#f5f2e8] text-center">
+          <div className="col-span-6 text-[#DCD7C9] text-center">
             <p className="text-2xl">Loading your adventure stats...</p>
           </div>
         ) : error ? (
-          <div className="col-span-3 text-[#f5f2e8] text-center">
-            <p className="text-2xl text-red-500">{error}</p>
+          <div className="col-span-6 text-[#DCD7C9] text-center">
+            <p className="text-2xl text-[#A27B5C]">{error}</p>
           </div>
         ) : (
           <>
             {/* First row - 3 cards */}
-            <div className="bg-[#D9D9D9] rounded-lg p-6 text-center">
-              <FaGlobeAmericas className="w-20 h-20 mx-auto text-[#123458]" />
-              <h2 className="text-6xl font-extrabold text-[#123458] my-4">
+            <div className="bg-[#DCD7C9] rounded-lg p-8 text-center col-span-2 shadow-lg">
+              <FaGlobeAmericas className="w-20 h-20 mx-auto text-[#2C3930]" />
+              <h2 className="text-6xl font-extrabold text-[#2C3930] my-4">
                 {userStats.totalTripsPlanned}
               </h2>
-              <p className="text-xl font-bold text-[#123458] underline">
+              <p className="text-xl font-bold text-[#2C3930] underline">
                 Total Trips Planned
               </p>
             </div>
 
-            <div className="bg-[#D9D9D9] rounded-lg p-6 text-center">
-              <FaMountain className="w-20 h-20 mx-auto text-[#123458]" />
-              <h2 className="text-6xl font-extrabold text-[#123458] my-4">
+            <div className="bg-[#DCD7C9] rounded-lg p-8 text-center col-span-2 shadow-lg">
+              <FaMountain className="w-20 h-20 mx-auto text-[#2C3930]" />
+              <h2 className="text-6xl font-extrabold text-[#2C3930] my-4">
                 {userStats.nationalParksVisited}
               </h2>
-              <p className="text-xl font-bold text-[#123458] underline">
+              <p className="text-xl font-bold text-[#2C3930] underline">
                 National Parks Visited
               </p>
             </div>
 
-            <div className="bg-[#D9D9D9] rounded-lg p-6 text-center">
-              <FaTree className="w-20 h-20 mx-auto text-[#123458]" />
-              <h2 className="text-6xl font-extrabold text-[#123458] my-4">
+            <div className="bg-[#DCD7C9] rounded-lg p-8 text-center col-span-2 shadow-lg">
+              <FaTree className="w-20 h-20 mx-auto text-[#2C3930]" />
+              <h2 className="text-6xl font-extrabold text-[#2C3930] my-4">
                 {userStats.stateParksVisited}
               </h2>
-              <p className="text-xl font-bold text-[#123458] underline">
+              <p className="text-xl font-bold text-[#2C3930] underline">
                 State Parks Visited
               </p>
             </div>
 
             {/* Second row - 2 cards centered */}
-            <div className="bg-[#D9D9D9] rounded-lg p-6 text-center col-start-1 col-end-2 col-span-1">
-              <FaRoute className="w-20 h-20 mx-auto text-[#123458]" />
-              <h2 className="text-6xl font-extrabold text-[#123458] my-4">
+            <div className="bg-[#DCD7C9] rounded-lg p-8 text-center col-start-2 col-span-2 shadow-lg">
+              <FaRoute className="w-20 h-20 mx-auto text-[#2C3930]" />
+              <h2 className="text-6xl font-extrabold text-[#2C3930] my-4">
                 {userStats.milesOfTrailsPlanned}
               </h2>
-              <p className="text-xl font-bold text-[#123458] underline">
+              <p className="text-xl font-bold text-[#2C3930] underline">
                 Miles of Trails Planned
               </p>
             </div>
 
-            <div className="bg-[#D9D9D9] rounded-lg p-6 text-center col-span-1">
-              <FaCampground className="w-20 h-20 mx-auto text-[#123458]" />
-              <h2 className="text-6xl font-extrabold text-[#123458] my-4">
+            <div className="bg-[#DCD7C9] rounded-lg p-8 text-center col-start-4 col-span-2 shadow-lg">
+              <FaCampground className="w-20 h-20 mx-auto text-[#2C3930]" />
+              <h2 className="text-6xl font-extrabold text-[#2C3930] my-4">
                 {userStats.campgroundsStayed}
               </h2>
-              <p className="text-xl font-bold text-[#123458] underline">
+              <p className="text-xl font-bold text-[#2C3930] underline">
                 Campgrounds Stayed
               </p>
             </div>
