@@ -10,6 +10,7 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { FaHiking } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 
 // Create custom park icon
 const parkIcon = L.icon({
@@ -98,15 +99,6 @@ interface Park {
   parkCode: string;
   name: string;
   fullName: string;
-  states: string;
-  description: string;
-  images: {
-    url: string;
-    title: string;
-    caption: string;
-    credit: string;
-  }[];
-  designation: string;
   latitude: string;
   longitude: string;
   states: string;
@@ -206,21 +198,133 @@ const stateCoordinates: { [key: string]: [number, number] } = {
   WY: [43.075968, -107.290284], // Wyoming
 };
 
+// Create batch processing utility
+const processBatch = <T, R>(items: T[], batchSize: number, processor: (item: T) => R | null): R[] => {
+  const results: R[] = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    const batch = items.slice(i, i + batchSize);
+    batch.forEach(item => {
+      try {
+        const result = processor(item);
+        if (result) results.push(result);
+      } catch (error) {
+        console.warn('Error processing item:', error);
+      }
+    });
+  }
+  return results;
+};
+
 const MapZoomHandler: React.FC<{
   stateCode: string;
   selectedPark: string;
   onParkSelect: (parkCode: string) => void;
 }> = ({ stateCode, selectedPark, onParkSelect }) => {
   const map = useMap();
+  const navigate = useNavigate();
   const [parks, setParks] = useState<Park[]>([]);
-  const [selectedBoundary, setSelectedBoundary] = useState<ParkBoundary | null>(
-    null
-  );
-  const [stateBoundary, setStateBoundary] = useState<StateBoundary | null>(
-    null
-  );
+  const [selectedBoundary, setSelectedBoundary] = useState<ParkBoundary | null>(null);
+  const [stateBoundary, setStateBoundary] = useState<StateBoundary | null>(null);
   const [trails, setTrails] = useState<TrailFeature[]>([]);
   const [showTrails, setShowTrails] = useState(false);
+  const [isProcessingTrails, setIsProcessingTrails] = useState(false);
+
+  // Cleanup function for abortion of fetch requests
+  const abortController = React.useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (abortController.current) {
+        abortController.current.abort();
+      }
+    };
+  }, []);
+
+  const fetchTrails = React.useCallback(async () => {
+    if (!selectedPark || isProcessingTrails) return;
+
+    // Abort previous request if exists
+    if (abortController.current) {
+      abortController.current.abort();
+    }
+    abortController.current = new AbortController();
+
+    setIsProcessingTrails(true);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_URL}/api/trails/unit/${selectedPark}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: abortController.current.signal
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const trailsData = await response.json();
+
+      if (!Array.isArray(trailsData)) {
+        console.warn("Trails data is not an array:", trailsData);
+        setTrails([]);
+        return;
+      }
+
+      // Process trails in batches of 50 to prevent UI blocking
+      const formattedTrails = processBatch(trailsData, 50, (trail: Trail) => {
+        if (!trail?.geometry?.coordinates) return null;
+
+        try {
+          const coordinates = trail.geometry.type === "MultiLineString"
+            ? (trail.geometry.coordinates as number[][][]).flat()
+            : (trail.geometry.coordinates as number[][]);
+
+          const validCoordinates = coordinates
+            .filter((coord): coord is number[] => 
+              Array.isArray(coord) && coord.length >= 2 &&
+              !isNaN(coord[0]) && !isNaN(coord[1]) &&
+              Math.abs(coord[0]) <= 180 && Math.abs(coord[1]) <= 90
+            )
+            .map(coord => coord.slice(0, 2));
+
+          if (validCoordinates.length < 2) return null;
+
+          return {
+            type: "Feature" as const,
+            properties: trail.properties || {},
+            geometry: {
+              type: "LineString" as const,
+              coordinates: validCoordinates,
+            },
+          };
+        } catch (error) {
+          console.warn("Error processing trail:", error);
+          return null;
+        }
+      });
+
+      setTrails(formattedTrails);
+    } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('Fetch aborted');
+        } else {
+          console.error("Error fetching trails:", error);
+          setTrails([]);
+        }
+    } finally {
+      setIsProcessingTrails(false);
+    }
+  }, [selectedPark, isProcessingTrails]);
+
+  useEffect(() => {
+    fetchTrails();
+  }, [fetchTrails]);
+
+  const handlePlanTrip = (parkCode: string) => {
+    navigate(`/plan/${parkCode}`);
+  };
 
   useEffect(() => {
     const fetchParks = async () => {
@@ -370,84 +474,6 @@ const MapZoomHandler: React.FC<{
     fetchStateBoundary();
   }, [stateCode, map]);
 
-  useEffect(() => {
-    const fetchTrails = async () => {
-      if (selectedPark) {
-        try {
-          const token = localStorage.getItem("token");
-          const response = await fetch(
-            `${API_URL}/api/trails/unit/${selectedPark}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const trailsData = await response.json();
-          console.log("Raw trails data:", trailsData);
-
-          // Ensure trailsData is an array and has valid data
-          if (!Array.isArray(trailsData)) {
-            console.error("Trails data is not an array:", trailsData);
-            setTrails([]);
-            return;
-          }
-
-          // Format trails with proper error handling
-          const formattedTrails = trailsData
-            .filter((trail: Trail) => {
-              // Check if trail has required properties
-              if (!trail || !trail.geometry || !trail.geometry.coordinates) {
-                console.warn("Invalid trail data:", trail);
-                return false;
-              }
-              return true;
-            })
-            .map((trail: Trail) => {
-              console.log("Trail properties:", trail.properties);
-              // Handle both LineString and MultiLineString
-              const coordinates =
-                trail.geometry.type === "MultiLineString"
-                  ? (trail.geometry.coordinates as number[][][]).flat()
-                  : (trail.geometry.coordinates as number[][]);
-
-              // Filter and process coordinates
-              const validCoordinates = coordinates
-                .filter(
-                  (coord): coord is number[] =>
-                    Array.isArray(coord) && coord.length >= 2
-                )
-                .map((coord) => coord.slice(0, 2));
-
-              return {
-                type: "Feature" as const,
-                properties: trail.properties || {},
-                geometry: {
-                  type: "LineString" as const,
-                  coordinates: validCoordinates,
-                },
-              };
-            })
-            .filter((trail) => trail.geometry.coordinates.length > 0);
-
-          setTrails(formattedTrails);
-        } catch (error) {
-          console.error("Error fetching trails:", error);
-          setTrails([]);
-        }
-      } else {
-        setTrails([]);
-      }
-    };
-
-    fetchTrails();
-  }, [selectedPark]);
-
   const boundaryStyle = {
     fillColor: "#2d5a27", // Dark green for park boundaries
     fillOpacity: 0.2,
@@ -539,6 +565,25 @@ const MapZoomHandler: React.FC<{
             {showTrails ? "Hide Trails" : "Show Trails"}
           </span>
         </button>
+        
+        {/* Trail difficulty legend */}
+        {showTrails && (
+          <div className="mt-2 p-2 border-t border-gray-200">
+            <div className="text-sm font-medium mb-1">Trail Difficulty:</div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-4 h-1 bg-[#4CAF50]"></div>
+              <span className="text-xs">Easy</span>
+            </div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-4 h-1 bg-[#8BC34A]"></div>
+              <span className="text-xs">Moderate</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-1 bg-[#FFC107]"></div>
+              <span className="text-xs">Difficult</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {stateBoundary?.geometry && (
@@ -740,7 +785,7 @@ const MapZoomHandler: React.FC<{
                     {park.name}
                   </strong>
                   <img
-                    src={park.images[0].url}
+                    src={park.images[0]?.url}
                     alt={park.name}
                     className="w-full h-48 object-cover rounded-lg mb-3"
                     onError={(e) => {
@@ -758,8 +803,16 @@ const MapZoomHandler: React.FC<{
                       <span className="font-medium">State:</span> {park.states}
                     </p>
                   </div>
-                  <div className="text-xs text-gray-600 mt-2">
+                  <div className="text-xs text-gray-600 mt-2 mb-3">
                     <p className="line-clamp-2">{park.description}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handlePlanTrip(park.parkCode)}
+                      className="flex-1 bg-[#97a88c] text-white py-1.5 px-3 rounded-md hover:bg-[#7a8971] transition-colors duration-200 text-sm"
+                    >
+                      Plan Trip
+                    </button>
                   </div>
                 </div>
               </Popup>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+//import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 interface Park {
@@ -83,39 +83,13 @@ const NationalParkSelector: React.FC<NationalParkSelectorProps> = ({
     fetchParks();
   }, [selectedState]);
 
-  //   const [parks] = useState<Park[]>([
-  //     { id: 1, name: "Olympic National Park", location: "Port Angeles" },
-  //     { id: 2, name: "Mount Rainier National Park", location: "Ashford" },
-  //     { id: 3, name: "North Cascades National Park", location: "Sedro-Woolley" },
-  //     {
-  //       id: 4,
-  //       name: "Lake Chelan National Recreation Area",
-  //       location: "Stehekin",
-  //     },
-  //     { id: 5, name: "Yellowstone National Park", location: "Wyoming" },
-  //     { id: 6, name: "Yosemite National Park", location: "California" },
-  //     { id: 7, name: "Grand Canyon National Park", location: "Arizona" },
-  //     { id: 8, name: "Zion National Park", location: "Utah" },
-  //     { id: 9, name: "Glacier National Park", location: "Montana" },
-  //     { id: 10, name: "Rocky Mountain National Park", location: "Colorado" },
-  //     { id: 11, name: "Acadia National Park", location: "Maine" },
-  //     {
-  //       id: 12,
-  //       name: "Great Smoky Mountains National Park",
-  //       location: "Tennessee",
-  //     },
-  //     { id: 13, name: "Joshua Tree National Park", location: "California" },
-  //     { id: 14, name: "Death Valley National Park", location: "California" },
-  //     { id: 15, name: "Sequoia National Park", location: "California" },
-  //   ]);
-
   const onParkSelectHandler = (parkCode: string) => {
     console.log("Selected park code:", parkCode);
     onParkSelect(parkCode);
   };
 
   const handlePlanTrip = (parkCode: string) => {
-    navigate(`/parks/${parkCode}`);
+    navigate(`/plan/${parkCode}`);
   };
 
   return (
