@@ -12,7 +12,10 @@ import {
   FaCampground,
   FaComments,
   FaTimes,
+<<<<<<< Updated upstream
   FaDownload,
+=======
+>>>>>>> Stashed changes
 } from "react-icons/fa";
 import {
   MapContainer,
@@ -22,13 +25,20 @@ import {
   Popup,
   useMap,
 } from "react-leaflet";
+<<<<<<< Updated upstream
 import { Feature, Geometry, FeatureCollection } from "geojson";
+=======
+import { Feature, Geometry } from "geojson";
+>>>>>>> Stashed changes
 import { PathOptions } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import axios from "axios";
 import Logger from "../../utils/logger";
+<<<<<<< Updated upstream
 import html2canvas from "html2canvas";
+=======
+>>>>>>> Stashed changes
 import jsPDF from "jspdf";
 
 interface Park {
@@ -41,6 +51,7 @@ interface Park {
     id: string;
     name: string;
   }>;
+<<<<<<< Updated upstream
 }
 
 interface ParkBoundary {
@@ -63,6 +74,8 @@ interface ParkBoundary {
       };
     }>;
   };
+=======
+>>>>>>> Stashed changes
 }
 
 interface ChatResponse {
@@ -107,6 +120,12 @@ interface ChatMessage {
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5002";
 const CHATBOT_API_URL =
   import.meta.env.VITE_CHATBOT_API_URL || "http://localhost:8000";
+<<<<<<< Updated upstream
+=======
+const GEMINI_API_URL =
+  import.meta.env.VITE_GEMINI_API_URL || "http://localhost:9001";
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+>>>>>>> Stashed changes
 
 const transformToGeoJSON = (trail: any): Trail | null => {
   try {
@@ -150,6 +169,7 @@ const transformToGeoJSON = (trail: any): Trail | null => {
   }
 };
 
+<<<<<<< Updated upstream
 const boundaryStyle = {
   fillColor: "#2C3930",
   fillOpacity: 0.15,
@@ -165,10 +185,15 @@ const MapController: React.FC<{
   campgrounds: Campground[];
 }> = React.memo(
   ({ park, parkBoundary, trails, campgrounds }) => {
+=======
+const MapController: React.FC<{ park: Park | null }> = React.memo(
+  ({ park }) => {
+>>>>>>> Stashed changes
     const map = useMap();
     const initialBoundSet = useRef(false);
 
     useEffect(() => {
+<<<<<<< Updated upstream
       if (!map || initialBoundSet.current) return;
 
       try {
@@ -238,22 +263,47 @@ const MapController: React.FC<{
           try {
             initialBoundSet.current = false;
             map.setView([39.8283, -98.5795], 4, { animate: true });
+=======
+      if (park && map) {
+        const lat = parseFloat(park.latitude);
+        const lng = parseFloat(park.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          try {
+            map.setView([lat, lng], 12, { animate: false });
+          } catch (error) {
+            console.error("Error setting map view:", error);
+          }
+        }
+      }
+      return () => {
+        if (map) {
+          try {
+            map.setView([39.8283, -98.5795], 4, { animate: false });
+>>>>>>> Stashed changes
           } catch (error) {
             console.error("Error resetting map view:", error);
           }
         }
       };
+<<<<<<< Updated upstream
     }, [map, park, parkBoundary, trails, campgrounds]);
+=======
+    }, [park?.latitude, park?.longitude, map]);
+>>>>>>> Stashed changes
 
     return null;
   },
   (prevProps, nextProps) => {
     return (
       prevProps.park?.latitude === nextProps.park?.latitude &&
+<<<<<<< Updated upstream
       prevProps.park?.longitude === nextProps.park?.longitude &&
       prevProps.parkBoundary?._id === nextProps.parkBoundary?._id &&
       prevProps.trails === nextProps.trails &&
       prevProps.campgrounds === nextProps.campgrounds
+=======
+      prevProps.park?.longitude === nextProps.park?.longitude
+>>>>>>> Stashed changes
     );
   }
 );
@@ -308,8 +358,12 @@ const campgroundIcon = L.icon({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
   shadowSize: [41, 41], // Adjust shadow size as needed
 });
+<<<<<<< Updated upstream
 //
 // const Plan: React.FC = () => {
+=======
+
+>>>>>>> Stashed changes
 const Plan: React.FC = () => {
   const { parkCode } = useParams<{ parkCode?: string }>();
   const navigate = useNavigate();
@@ -329,8 +383,19 @@ const Plan: React.FC = () => {
     messages: [] as ChatMessage[],
   }));
   const [isChatOpen, setIsChatOpen] = useState(false);
+<<<<<<< Updated upstream
   const [parkBoundary, setParkBoundary] = useState<ParkBoundary | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
+=======
+  const [showItineraryForm, setShowItineraryForm] = useState(false);
+  const [itineraryData, setItineraryData] = useState({
+    date: "",
+    time: "",
+    cost: "",
+    people: "",
+    transportation: "",
+  });
+>>>>>>> Stashed changes
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout>();
@@ -552,6 +617,7 @@ const Plan: React.FC = () => {
     fetchCampgrounds,
   ]);
 
+<<<<<<< Updated upstream
   useEffect(() => {
     if (!parkCode) return;
 
@@ -576,6 +642,8 @@ const Plan: React.FC = () => {
     fetchParkBoundary();
   }, [parkCode]);
 
+=======
+>>>>>>> Stashed changes
   const groupActivities = (activities: Array<{ id: string; name: string }>) => {
     const categories = {
       hiking: ["Hiking", "Day Hiking", "Backpacking", "Walking"],
@@ -740,6 +808,7 @@ const Plan: React.FC = () => {
 
   const mapCenter = useMemo(() => [39.8283, -98.5795] as [number, number], []);
 
+<<<<<<< Updated upstream
   const handleDownloadPDF = async () => {
     if (!state.currentPark || !mapRef.current) return;
 
@@ -939,6 +1008,46 @@ const Plan: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-[#f5f2e8] to-[#d3d9cf] p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-4 flex justify-between items-center">
+=======
+  const handleGeneratePDF = (itineraryContent: string) => {
+    const doc = new jsPDF();
+    doc.text("Generated Itinerary", 10, 10);
+    doc.text(itineraryContent, 10, 20);
+    doc.save("itinerary.pdf");
+  };
+
+  const handleItinerarySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post(
+        `${GEMINI_API_URL}/generate-itinerary`,
+        itineraryData,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${GEMINI_API_KEY}`, // Add the API key here
+          },
+        }
+      );
+
+      if (response.data && response.data.itinerary) {
+        handleGeneratePDF(response.data.itinerary);
+      } else {
+        console.error("Failed to generate itinerary: No content received");
+        alert("Failed to generate itinerary. Please try again later.");
+      }
+      setShowItineraryForm(false);
+    } catch (error) {
+      console.error("Error submitting itinerary:", error);
+      alert("Failed to submit itinerary. Please try again later.");
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#f5f2e8] to-[#d3d9cf] p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-4">
+>>>>>>> Stashed changes
           <Link
             to="/explore"
             className="inline-flex items-center gap-2 text-[#4d5e56] hover:text-[#97a88c] transition-colors duration-200"
@@ -946,6 +1055,7 @@ const Plan: React.FC = () => {
             <FaArrowLeft className="text-sm" />
             <span>Back to Explore</span>
           </Link>
+<<<<<<< Updated upstream
 
           {state.currentPark && (
             <button
@@ -1180,6 +1290,295 @@ const Plan: React.FC = () => {
             </div>
           </div>
         </div>
+=======
+        </div>
+
+        <h1 className="text-3xl font-bold mb-2 text-center text-[#4d5e56]">
+          {state.currentPark
+            ? `Plan Your Visit to ${state.currentPark.name}`
+            : "Plan Your Park Visit"}
+        </h1>
+        {state.currentPark && (
+          <p className="text-justify text-[#4d5e56] text-sm leading-relaxed mb-8 max-w-3xl mx-auto px-4">
+            {state.currentPark.description}
+          </p>
+        )}
+
+        <div className="flex justify-center gap-4 mb-6">
+          <button
+            onClick={() => setShowItineraryForm(true)}
+            className="bg-[#2B4C7E] text-white px-4 py-2 rounded-lg hover:bg-[#1A365D] transition-colors duration-200"
+          >
+            Itinerary
+          </button>
+          <button
+            onClick={() => setShowItineraryForm(false)}
+            className="bg-[#4CAF50] text-white px-4 py-2 rounded-lg hover:bg-[#388E3C] transition-colors duration-200"
+          >
+            Explore Activities
+          </button>
+        </div>
+
+        {showItineraryForm ? (
+          <form
+            onSubmit={handleItinerarySubmit}
+            className="bg-white p-6 rounded-lg shadow-lg max-w-md mx-auto"
+          >
+            <h2 className="text-xl font-bold mb-4 text-[#4d5e56]">
+              Plan Your Itinerary
+            </h2>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Date
+              </label>
+              <input
+                type="date"
+                value={itineraryData.date}
+                onChange={(e) =>
+                  setItineraryData({ ...itineraryData, date: e.target.value })
+                }
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#2B4C7E] focus:border-[#2B4C7E]"
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Time
+              </label>
+              <input
+                type="time"
+                value={itineraryData.time}
+                onChange={(e) =>
+                  setItineraryData({ ...itineraryData, time: e.target.value })
+                }
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#2B4C7E] focus:border-[#2B4C7E]"
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Estimated Cost
+              </label>
+              <input
+                type="number"
+                value={itineraryData.cost}
+                onChange={(e) =>
+                  setItineraryData({ ...itineraryData, cost: e.target.value })
+                }
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#2B4C7E] focus:border-[#2B4C7E]"
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Number of People
+              </label>
+              <input
+                type="number"
+                value={itineraryData.people}
+                onChange={(e) =>
+                  setItineraryData({ ...itineraryData, people: e.target.value })
+                }
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#2B4C7E] focus:border-[#2B4C7E]"
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Transportation
+              </label>
+              <input
+                type="text"
+                value={itineraryData.transportation}
+                onChange={(e) =>
+                  setItineraryData({
+                    ...itineraryData,
+                    transportation: e.target.value,
+                  })
+                }
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#2B4C7E] focus:border-[#2B4C7E]"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              className="bg-[#2B4C7E] text-white px-4 py-2 rounded-lg hover:bg-[#1A365D] transition-colors duration-200"
+            >
+              Generate PDF
+            </button>
+          </form>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-6">
+                <div className="bg-white rounded-lg shadow-lg p-6">
+                  <h2 className="text-xl font-bold mb-4 text-[#4d5e56]">
+                    Available Activities
+                  </h2>
+                  {state.parkActivities.length > 0 && (
+                    <div className="space-y-4">
+                      {Object.entries(
+                        groupActivities(state.parkActivities)
+                      ).map(([category, activities]) => (
+                        <div key={category} className="space-y-2">
+                          <h3 className="text-lg font-semibold text-[#2B4C7E] capitalize">
+                            {category}
+                          </h3>
+                          <div className="flex flex-wrap gap-2">
+                            {activities.map((activity) => (
+                              <button
+                                key={activity.id}
+                                onClick={() =>
+                                  debouncedHandleSendMessage(
+                                    `Tell me about ${activity.name} in ${state.currentPark?.name}`
+                                  )
+                                }
+                                className="bg-[#97a88c]/10 text-[#4d5e56] px-3 py-1 rounded-full text-sm border border-[#97a88c]/20 hover:bg-[#97a88c]/20 transition-colors"
+                              >
+                                {activity.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-lg overflow-hidden relative h-[600px]">
+                <div className="absolute top-4 right-4 z-[1000] flex gap-2 bg-white p-2 rounded-lg shadow-lg">
+                  <button
+                    onClick={() =>
+                      setState((prev) => ({
+                        ...prev,
+                        showTrails: !prev.showTrails,
+                      }))
+                    }
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-200 ${
+                      state.showTrails
+                        ? "bg-[#4CAF50] text-white"
+                        : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    <FaHiking className="text-lg" />
+                    <span className="text-sm font-medium">
+                      {state.showTrails ? "Hide Trails" : "Show Trails"}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() =>
+                      setState((prev) => ({
+                        ...prev,
+                        showCampgrounds: !prev.showCampgrounds,
+                      }))
+                    }
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-200 ${
+                      state.showCampgrounds
+                        ? "bg-[#FFA726] text-white"
+                        : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    <FaCampground className="text-lg" />
+                    <span className="text-sm font-medium">Campgrounds</span>
+                  </button>
+
+                  {/* Trail difficulty legend popup */}
+                  {state.showTrails && (
+                    <div className="absolute top-full right-0 mt-2 bg-white p-2 rounded-lg shadow-lg">
+                      <div className="text-sm font-medium mb-1">
+                        Trail Difficulty:
+                      </div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-4 h-1 bg-[#4CAF50]"></div>
+                        <span className="text-xs">Easy</span>
+                      </div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-4 h-1 bg-[#FFA726]"></div>
+                        <span className="text-xs">Moderate</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-1 bg-[#E53935]"></div>
+                        <span className="text-xs">Difficult</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="h-[800px]">
+                  <MapContainer
+                    key={state.currentPark?.parkCode || "default"}
+                    center={mapCenter}
+                    zoom={4}
+                    style={{ height: "100%", width: "100%" }}
+                    scrollWheelZoom={true}
+                    attributionControl={false}
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    />
+                    <MapController park={state.currentPark} />
+                    {state.showTrails &&
+                      state.trails.map((trail, index) => (
+                        <GeoJSON
+                          key={`trail-${trail.properties.TRLNAME}-${index}`}
+                          data={trail}
+                          style={getTrailStyle}
+                          onEachFeature={handleTrailFeature}
+                        />
+                      ))}
+                    {state.showCampgrounds &&
+                      state.campgrounds?.map((campground, index) => (
+                        <Marker
+                          key={`campground-${index}`}
+                          position={[campground.latitude, campground.longitude]}
+                          icon={campgroundIcon}
+                        >
+                          <Popup>
+                            <div className="p-2">
+                              <h3 className="font-bold">{campground.name}</h3>
+                              <p className="text-sm">
+                                {campground.description}
+                              </p>
+                              <button
+                                onClick={() =>
+                                  window.open(campground.reservationUrl)
+                                }
+                                className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+                              >
+                                Make Reservation
+                              </button>
+                            </div>
+                          </Popup>
+                        </Marker>
+                      ))}
+                  </MapContainer>
+                </div>
+                <div className="p-4 border-t border-gray-200">
+                  <h3 className="font-semibold text-[#4d5e56] mb-2">
+                    Trail Difficulty
+                  </h3>
+                  <div className="flex gap-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full bg-[#4CAF50]"></div>
+                      <span className="text-sm text-gray-600">Easy</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full bg-[#FFA726]"></div>
+                      <span className="text-sm text-gray-600">Moderate</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full bg-[#E53935]"></div>
+                      <span className="text-sm text-gray-600">Difficult</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+>>>>>>> Stashed changes
       </div>
 
       <button
