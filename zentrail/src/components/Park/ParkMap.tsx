@@ -98,15 +98,6 @@ interface Park {
   parkCode: string;
   name: string;
   fullName: string;
-  states: string;
-  description: string;
-  images: {
-    url: string;
-    title: string;
-    caption: string;
-    credit: string;
-  }[];
-  designation: string;
   latitude: string;
   longitude: string;
   states: string;
