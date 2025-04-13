@@ -57,19 +57,22 @@ app.get("/api/test", (req, res) => {
   res.json({ message: "Backend server is running!" });
 });
 
-// Import and use routes
+// Import routes
 const authRoutes = require("./routes/authRoutes");
 const userStatsRoutes = require("./routes/userStatsRoutes");
 const parkRoutes = require("./routes/parkRoutes");
 const parkBoundaryRoutes = require("./routes/parkBoundaries");
 const stateBoundaryRoutes = require("./routes/stateBoundaries");
+const trailRoutes = require("./routes/trails");
 
-// Mount routes BEFORE the 404 handler
+// Mount routes
 app.use("/api/auth", authRoutes);
 app.use("/api/user-stats", userStatsRoutes);
 app.use("/api/parks", parkRoutes);
 app.use("/api/park-boundaries", parkBoundaryRoutes);
 app.use("/api/state-boundaries", stateBoundaryRoutes);
+app.use("/api/trails", trailRoutes);
+
 // MongoDB connection with detailed error handling
 const connectDB = async () => {
   try {
