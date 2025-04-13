@@ -206,10 +206,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👥 Team
 
-- John Doe - Frontend Developer
-- Jane Smith - Backend Developer
-- Alex Johnson - AI Engineer
-- Sarah Wilson - UX Designer
+- Aishwarya , Banudeep , Aravind and Praneeth
 
 ## 📞 Support
 
