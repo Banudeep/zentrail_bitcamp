@@ -62,13 +62,14 @@ const authRoutes = require("./routes/authRoutes");
 const userStatsRoutes = require("./routes/userStatsRoutes");
 const parkRoutes = require("./routes/parkRoutes");
 const parkBoundaryRoutes = require("./routes/parkBoundaries");
+const stateBoundaryRoutes = require("./routes/stateBoundaries");
 
 // Mount routes BEFORE the 404 handler
 app.use("/api/auth", authRoutes);
 app.use("/api/user-stats", userStatsRoutes);
 app.use("/api/parks", parkRoutes);
 app.use("/api/park-boundaries", parkBoundaryRoutes);
-
+app.use("/api/state-boundaries", stateBoundaryRoutes);
 // MongoDB connection with detailed error handling
 const connectDB = async () => {
   try {

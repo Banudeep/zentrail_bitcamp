@@ -23,7 +23,12 @@ db.once("open", () => {
 
 // Routes
 const parkBoundariesRouter = require("./routes/parkBoundaries");
+const parkRoutes = require("./routes/parks");
+const stateBoundaryRoutes = require("./routes/stateBoundaries");
+
 app.use("/api/park_boundaries", parkBoundariesRouter);
+app.use("/api/parks", parkRoutes);
+app.use("/api/states", stateBoundaryRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
