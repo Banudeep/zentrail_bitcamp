@@ -746,77 +746,185 @@ const Plan: React.FC = () => {
     try {
       setState((prev) => ({ ...prev, loading: true }));
 
-      // Capture the map
+      // Wait for any map animations to complete
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Capture the map with current view
       const mapCanvas = await html2canvas(mapRef.current, {
         useCORS: true,
         allowTaint: true,
         scrollY: -window.scrollY,
+        scale: 2, // Higher resolution
+        logging: false,
+        backgroundColor: null,
       });
 
-      // Create PDF
-      const pdf = new jsPDF("p", "mm", "a4");
+      // Create PDF with landscape orientation for better map display
+      const pdf = new jsPDF("l", "mm", "a4"); // Changed to landscape
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
 
-      // Add park name
+      // Add park name as header
       pdf.setFontSize(24);
-      pdf.setTextColor(45, 89, 39); // Dark green color
-      pdf.text(state.currentPark.name, pageWidth / 2, 20, { align: "center" });
+      pdf.setTextColor(44, 57, 48); // #2C3930
+      pdf.text(state.currentPark.name, pageWidth / 2, 15, { align: "center" });
 
       // Add description
-      pdf.setFontSize(12);
-      pdf.setTextColor(0);
+      pdf.setFontSize(11);
+      pdf.setTextColor(77, 94, 86);
       const splitDescription = pdf.splitTextToSize(
         state.currentPark.description,
         pageWidth - 20
       );
-      pdf.text(splitDescription, 10, 35);
+      pdf.text(splitDescription, 10, 25);
 
-      // Add map image
+      // Calculate space used by description
+      const descriptionHeight = splitDescription.length * 5; // Approximate height of description
+
+      // Add map image - make it as large as possible while maintaining aspect ratio
       const mapImage = mapCanvas.toDataURL("image/jpeg", 1.0);
-      const mapHeight = (pageWidth * mapCanvas.height) / mapCanvas.width;
-      pdf.addImage(mapImage, "JPEG", 10, 80, pageWidth - 20, mapHeight * 0.6);
+      const mapAspectRatio = mapCanvas.width / mapCanvas.height;
 
-      // Add activities
-      let yPosition = 80 + mapHeight * 0.6 + 10;
+      // Calculate maximum available space for map
+      const maxMapWidth = pageWidth - 20; // 10mm margin on each side
+      const maxMapHeight = pageHeight - (40 + descriptionHeight); // Leave space for header and description
+
+      let mapWidth = maxMapWidth;
+      let mapHeight = mapWidth / mapAspectRatio;
+
+      // If height is too large, scale based on height instead
+      if (mapHeight > maxMapHeight) {
+        mapHeight = maxMapHeight;
+        mapWidth = mapHeight * mapAspectRatio;
+      }
+
+      // Center map horizontally
+      const mapX = (pageWidth - mapWidth) / 2;
+      const mapY = 30 + descriptionHeight;
+
+      // Add high-quality map image
+      pdf.addImage(
+        mapImage,
+        "JPEG",
+        mapX,
+        mapY,
+        mapWidth,
+        mapHeight,
+        undefined,
+        "FAST"
+      );
+
+      // Add a new page for activities and other information
+      pdf.addPage("p"); // Switch back to portrait for the rest of the content
+
+      // Reset page dimensions for portrait orientation
+      const portraitWidth = pdf.internal.pageSize.getWidth();
+      const portraitHeight = pdf.internal.pageSize.getHeight();
+
+      // Add activities section
+      let yPosition = 20;
       pdf.setFontSize(16);
-      pdf.setTextColor(45, 89, 39);
+      pdf.setTextColor(44, 57, 48);
       pdf.text("Available Activities", 10, yPosition);
 
-      yPosition += 10;
-      pdf.setFontSize(12);
-      pdf.setTextColor(0);
-
+      // Add activities by category
+      yPosition += 8;
+      pdf.setFontSize(11);
       const groupedActivities = groupActivities(state.parkActivities);
+
       Object.entries(groupedActivities).forEach(([category, activities]) => {
-        if (yPosition > pageHeight - 20) {
+        if (yPosition > portraitHeight - 20) {
           pdf.addPage();
           yPosition = 20;
         }
 
-        pdf.setFontSize(14);
-        pdf.setTextColor(43, 76, 126); // Blue color
-        pdf.text(
-          category.charAt(0).toUpperCase() + category.slice(1),
-          10,
-          yPosition
-        );
-
+        // Category header
+        pdf.setFontSize(13);
+        pdf.setTextColor(43, 76, 126);
+        const categoryName =
+          category.charAt(0).toUpperCase() + category.slice(1);
+        pdf.text(categoryName, 10, yPosition);
         yPosition += 6;
-        pdf.setFontSize(12);
-        pdf.setTextColor(0);
 
+        // Activities in category
+        pdf.setFontSize(11);
+        pdf.setTextColor(77, 94, 86);
         activities.forEach((activity) => {
-          if (yPosition > pageHeight - 20) {
+          if (yPosition > portraitHeight - 20) {
             pdf.addPage();
             yPosition = 20;
           }
           pdf.text(`• ${activity.name}`, 15, yPosition);
-          yPosition += 6;
+          yPosition += 5;
         });
 
-        yPosition += 4;
+        yPosition += 5;
       });
+
+      // Add trails section if available
+      if (state.showTrails && state.trails.length > 0) {
+        if (yPosition > portraitHeight - 40) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+
+        pdf.setFontSize(16);
+        pdf.setTextColor(44, 57, 48);
+        pdf.text("Trails", 10, yPosition);
+        yPosition += 8;
+
+        pdf.setFontSize(11);
+        pdf.setTextColor(77, 94, 86);
+        state.trails.forEach((trail) => {
+          if (yPosition > portraitHeight - 20) {
+            pdf.addPage();
+            yPosition = 20;
+          }
+          pdf.text(`• ${trail.properties.TRLNAME}`, 15, yPosition);
+          if (
+            trail.properties.TRLCLASS &&
+            trail.properties.TRLCLASS !== "Unknown"
+          ) {
+            pdf.text(
+              `  Difficulty: ${trail.properties.TRLCLASS}`,
+              20,
+              yPosition + 4
+            );
+            yPosition += 8;
+          } else {
+            yPosition += 5;
+          }
+        });
+      }
+
+      // Add campgrounds section if available
+      if (state.showCampgrounds && state.campgrounds.length > 0) {
+        if (yPosition > portraitHeight - 40) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+
+        pdf.setFontSize(16);
+        pdf.setTextColor(44, 57, 48);
+        pdf.text("Campgrounds", 10, yPosition);
+        yPosition += 8;
+
+        pdf.setFontSize(11);
+        pdf.setTextColor(77, 94, 86);
+        state.campgrounds.forEach((campground) => {
+          if (yPosition > portraitHeight - 20) {
+            pdf.addPage();
+            yPosition = 20;
+          }
+          pdf.text(`• ${campground.name}`, 15, yPosition);
+          const splitDesc = pdf.splitTextToSize(
+            campground.description,
+            portraitWidth - 30
+          );
+          pdf.text(splitDesc, 20, yPosition + 4);
+          yPosition += 8 + splitDesc.length * 4;
+        });
+      }
 
       // Save the PDF
       pdf.save(`${state.currentPark.name.replace(/\s+/g, "_")}_guide.pdf`);
