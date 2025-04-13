@@ -319,19 +319,19 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
   }, [stateCode, map]);
 
   const boundaryStyle = {
-    fillColor: "#97a88c",
+    fillColor: "#2d5a27", // Dark green for park boundaries
     fillOpacity: 0.2,
-    color: "#2B4C7E",
+    color: "#2d5a27", // Dark green border
     weight: 2,
     opacity: 0.8,
   };
 
   const stateBoundaryStyle = {
-    fillColor: "#f5f2e8",
-    fillOpacity: 0.1,
-    color: "#97a88c",
-    weight: 2,
-    opacity: 0.8,
+    fillColor: "#2B4C7E", // Blue fill
+    fillOpacity: 0.2,
+    color: "#2B4C7E", // Blue border
+    weight: 3,
+    opacity: 1,
   };
 
   return (
@@ -355,8 +355,8 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
               mouseover: (e) => {
                 const layer = e.target;
                 layer.setStyle({
-                  fillOpacity: 0.2,
-                  weight: 3,
+                  fillOpacity: 0.4, // More visible on hover
+                  weight: 4,
                   opacity: 1,
                 });
               },
@@ -401,7 +401,7 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
             // Add popup with park info
             layer.bindPopup(`
               <div class="text-center">
-                <strong class="block text-[#2B4C7E] text-sm mb-1">
+                <strong class="block text-[#2d5a27] text-sm mb-1">
                   ${feature.properties.name}
                 </strong>
                 <span class="text-xs text-gray-600">
