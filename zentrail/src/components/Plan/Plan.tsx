@@ -305,7 +305,7 @@ const Plan: React.FC = () => {
 
     const fetchCampgrounds = useCallback(async (unitCode: string) => {
         try {
-            const campgroundsData = await makeAuthenticatedRequest(`${API_URL}/api/campgrounds/unit/${unitCode}`);
+            const campgroundsData = await makeAuthenticatedRequest(`${API_URL}/api/campgrounds/park/${unitCode}`);
             setState(prev => ({ 
                 ...prev, 
                 campgrounds: campgroundsData || [] 

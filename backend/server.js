@@ -64,6 +64,7 @@ const parkRoutes = require("./routes/parkRoutes");
 const parkBoundaryRoutes = require("./routes/parkBoundaries");
 const stateBoundaryRoutes = require("./routes/stateBoundaries");
 const trailRoutes = require("./routes/trails");
+const campgroundRoutes = require("./routes/campgroundRoutes");
 
 // Mount routes
 app.use("/api/auth", authRoutes);
@@ -72,6 +73,7 @@ app.use("/api/parks", parkRoutes);
 app.use("/api/park-boundaries", parkBoundaryRoutes);
 app.use("/api/state-boundaries", stateBoundaryRoutes);
 app.use("/api/trails", trailRoutes);
+app.use("/api/campgrounds", campgroundRoutes);
 
 // MongoDB connection with detailed error handling
 const connectDB = async () => {
