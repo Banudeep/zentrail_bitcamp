@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  useMap,
+  GeoJSON,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
@@ -25,6 +32,39 @@ console.log("Environment variables:", {
   NODE_ENV: import.meta.env.NODE_ENV,
   API_URL,
 });
+
+interface ParkDesignation {
+  name: string;
+  description: string;
+  abbreviation: string;
+  id: string;
+}
+
+interface ParkAlias {
+  parkId: string;
+  current: boolean;
+  name: string;
+  id: string;
+}
+
+interface ParkBoundary {
+  _id: {
+    $oid: string;
+  };
+  id: string;
+  geometry: {
+    type: "MultiPolygon";
+    coordinates: number[][][][];
+  };
+  properties: {
+    alternateName: string;
+    designationId: string;
+    designation: ParkDesignation;
+    aliases: ParkAlias[];
+    name: string;
+  };
+  type: "Feature";
+}
 
 interface Park {
   parkCode: string;
@@ -97,6 +137,9 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
 }) => {
   const map = useMap();
   const [parks, setParks] = useState<Park[]>([]);
+  const [selectedBoundary, setSelectedBoundary] = useState<ParkBoundary | null>(
+    null
+  );
 
   useEffect(() => {
     const fetchParks = async () => {
@@ -128,6 +171,45 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
   }, []);
 
   useEffect(() => {
+    const fetchParkBoundary = async () => {
+      if (selectedPark) {
+        try {
+          const token = localStorage.getItem("token");
+          const response = await fetch(
+            `${API_URL}/api/park-boundaries/${selectedPark}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const boundary: ParkBoundary = await response.json();
+          setSelectedBoundary(boundary);
+
+          // If boundary exists, fit the map to the boundary
+          if (boundary && boundary.geometry) {
+            const geoJsonLayer = L.geoJSON(boundary);
+            const bounds = geoJsonLayer.getBounds();
+            map.fitBounds(bounds, { padding: [50, 50] });
+          }
+        } catch (error) {
+          console.error("Error fetching park boundary:", error);
+          setSelectedBoundary(null);
+        }
+      } else {
+        setSelectedBoundary(null);
+      }
+    };
+
+    fetchParkBoundary();
+  }, [selectedPark, map]);
+
+  useEffect(() => {
     if (selectedPark && parks.length > 0) {
       const selectedParkData = parks.find(
         (park) => park.parkCode === selectedPark
@@ -153,8 +235,51 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
     }
   }, [stateCode]);
 
+  const boundaryStyle = {
+    fillColor: "#97a88c",
+    fillOpacity: 0.2,
+    color: "#2B4C7E",
+    weight: 2,
+    opacity: 0.8,
+  };
+
   return (
     <>
+      {selectedBoundary && (
+        <GeoJSON
+          key={selectedBoundary.id}
+          data={selectedBoundary as GeoJSON.Feature}
+          style={boundaryStyle}
+          onEachFeature={(feature, layer) => {
+            layer.on({
+              mouseover: (e) => {
+                const layer = e.target;
+                layer.setStyle({
+                  fillOpacity: 0.4,
+                  weight: 3,
+                  opacity: 1,
+                });
+              },
+              mouseout: (e) => {
+                const layer = e.target;
+                layer.setStyle(boundaryStyle);
+              },
+            });
+
+            // Add popup with park info
+            layer.bindPopup(`
+              <div class="text-center">
+                <strong class="block text-[#2B4C7E] text-sm mb-1">
+                  ${feature.properties.name}
+                </strong>
+                <span class="text-xs text-gray-600">
+                  ${feature.properties.designation.name}
+                </span>
+              </div>
+            `);
+          }}
+        />
+      )}
       {parks.map((park) => {
         const lat = parseFloat(park.latitude);
         const lng = parseFloat(park.longitude);
