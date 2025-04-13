@@ -99,15 +99,6 @@ interface Park {
   parkCode: string;
   name: string;
   fullName: string;
-  states: string;
-  description: string;
-  images: {
-    url: string;
-    title: string;
-    caption: string;
-    credit: string;
-  }[];
-  designation: string;
   latitude: string;
   longitude: string;
   states: string;
@@ -316,12 +307,12 @@ const MapZoomHandler: React.FC<{
 
       setTrails(formattedTrails);
     } catch (error) {
-      if (error.name === 'AbortError') {
-        console.log('Fetch aborted');
-      } else {
-        console.error("Error fetching trails:", error);
-        setTrails([]);
-      }
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('Fetch aborted');
+        } else {
+          console.error("Error fetching trails:", error);
+          setTrails([]);
+        }
     } finally {
       setIsProcessingTrails(false);
     }
@@ -574,6 +565,25 @@ const MapZoomHandler: React.FC<{
             {showTrails ? "Hide Trails" : "Show Trails"}
           </span>
         </button>
+        
+        {/* Trail difficulty legend */}
+        {showTrails && (
+          <div className="mt-2 p-2 border-t border-gray-200">
+            <div className="text-sm font-medium mb-1">Trail Difficulty:</div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-4 h-1 bg-[#4CAF50]"></div>
+              <span className="text-xs">Easy</span>
+            </div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-4 h-1 bg-[#8BC34A]"></div>
+              <span className="text-xs">Moderate</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-1 bg-[#FFC107]"></div>
+              <span className="text-xs">Difficult</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {stateBoundary?.geometry && (

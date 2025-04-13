@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, GeoJSON, Marker, Popup, useMap } from 'react-l
 import { Feature, Geometry } from 'geojson';
 import { PathOptions } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 import axios from 'axios';
 import Logger from '../../utils/logger';
 
@@ -52,6 +53,11 @@ interface Campground {
     latitude: number;
     longitude: number;
     reservationUrl: string;
+}
+
+interface ChatMessage {
+    text: string;
+    isUser: boolean;
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002';
@@ -158,7 +164,16 @@ const getTrailStyle = (feature: Feature<Geometry> | undefined): PathOptions => {
     }
     return { ...baseStyle, color: '#9E9E9E' };
 };
-
+const campgroundIcon = L.icon({
+    iconUrl: '/path/to/campground-icon.png', // Replace with the actual path to your icon
+    iconSize: [25, 41], // Adjust size as needed
+    iconAnchor: [12, 41], // Adjust anchor point as needed
+    popupAnchor: [1, -34], // Adjust popup anchor as needed
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+    shadowSize: [41, 41], // Adjust shadow size as needed
+});
+// 
+// const Plan: React.FC = () => {
 const Plan: React.FC = () => {
     const { parkCode } = useParams<{ parkCode?: string }>();
     const navigate = useNavigate();
@@ -174,7 +189,8 @@ const Plan: React.FC = () => {
         showTrails: true,
         showCampgrounds: false,
         chatResponse: null as ChatResponse | null,
-        loadingTrails: false
+        loadingTrails: false,
+        messages: [] as ChatMessage[]
     }));
     const [isChatOpen, setIsChatOpen] = useState(false);
 
@@ -229,38 +245,38 @@ const Plan: React.FC = () => {
         }
     }, [navigate]);
 
-    const debouncedHandleSendMessage = useCallback((userQuery: string) => {
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
+    const debouncedHandleSendMessage = useCallback(async (userQuery: string) => {
+        setState(prev => ({ 
+            ...prev, 
+            loading: true,
+            messages: [...prev.messages, { text: userQuery, isUser: true }]
+        }));
+
+        try {
+            const response = await axios.post(`${CHATBOT_API_URL}/chat`, {
+                query: userQuery,
+                parkCode: parkCode
+            }, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            setState(prev => ({ 
+                ...prev, 
+                chatResponse: response.data,
+                loading: false,
+                messages: [...prev.messages, { text: response.data.response, isUser: false }]
+            }));
+        } catch (error) {
+            setState(prev => ({
+                ...prev,
+                error: error instanceof Error ? error.message : 'Failed to get response',
+                loading: false,
+                messages: [...prev.messages, { text: 'Sorry, I encountered an error processing your request.', isUser: false }]
+            }));
+            Logger.error('Plan', 'Chat request failed', error);
         }
-
-        setState(prev => ({ ...prev, loading: true, error: null }));
-
-        timeoutRef.current = setTimeout(async () => {
-            try {
-                const response = await axios.post(`${CHATBOT_API_URL}/chat`, {
-                    query: userQuery,
-                    parkCode: parkCode
-                }, {
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                setState(prev => ({ 
-                    ...prev, 
-                    chatResponse: response.data,
-                    loading: false 
-                }));
-            } catch (error) {
-                setState(prev => ({
-                    ...prev,
-                    error: error instanceof Error ? error.message : 'Failed to get response',
-                    loading: false
-                }));
-                Logger.error('Plan', 'Chat request failed', error);
-            }
-        }, 300);
     }, [parkCode]);
 
     const fetchTrails = useCallback(async (unitCode: string) => {
@@ -488,7 +504,7 @@ const Plan: React.FC = () => {
                     {state.currentPark ? `Plan Your Visit to ${state.currentPark.name}` : 'Plan Your Park Visit'}
                 </h1>
                 {state.currentPark && (
-                    <p className="text-center text-[#4d5e56] mb-8 max-w-2xl mx-auto">
+                    <p className="text-justify text-[#4d5e56] text-sm leading-relaxed mb-8 max-w-3xl mx-auto px-4">
                         {state.currentPark.description}
                     </p>
                 )}
@@ -615,27 +631,41 @@ const Plan: React.FC = () => {
 
             <button
                 onClick={() => setIsChatOpen(!isChatOpen)}
-                className="fixed bottom-6 right-6 bg-[#2B4C7E] text-white p-4 rounded-full shadow-lg hover:bg-[#1A365D] transition-colors duration-200 z-50"
+                className="fixed bottom-6 left-6 bg-[#2B4C7E] text-white p-4 rounded-full shadow-lg hover:bg-[#1A365D] transition-colors duration-200 z-50"
             >
                 {isChatOpen ? <FaTimes size={24} /> : <FaComments size={24} />}
             </button>
 
             {isChatOpen && (
-                <div className="fixed bottom-24 right-6 w-96 bg-white rounded-lg shadow-2xl z-50">
+                <div className="fixed bottom-24 left-6 w-96 bg-white rounded-lg shadow-2xl z-50">
                     <div className="p-4 bg-[#2B4C7E] text-white rounded-t-lg flex justify-between items-center">
                         <h3 className="font-semibold">TrailGuide AI Assistant</h3>
                         <button onClick={() => setIsChatOpen(false)} className="text-white hover:text-gray-200">
                             <FaTimes />
                         </button>
                     </div>
-                    <div className="p-4 max-h-[500px] overflow-y-auto">
-                        {state.chatResponse && (
-                            <div className="bg-gray-50 p-4 rounded-lg mt-4">
-                                <p className="text-gray-800 whitespace-pre-wrap">{state.chatResponse.response}</p>
+                    <div className="p-4 h-[400px] overflow-y-auto flex flex-col space-y-4">
+                        {state.messages.map((message, index) => (
+                            <div key={index} className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[80%] p-3 rounded-lg ${
+                                    message.isUser 
+                                        ? 'bg-[#2B4C7E] text-white rounded-br-none' 
+                                        : 'bg-gray-100 text-gray-800 rounded-bl-none'
+                                }`}>
+                                    <p className="whitespace-pre-wrap">{message.text}</p>
+                                </div>
+                            </div>
+                        ))}
+                        {state.loading && (
+                            <div className="flex justify-start">
+                                <div className="bg-gray-100 text-gray-800 p-3 rounded-lg rounded-bl-none">
+                                    <p>Thinking...</p>
+                                </div>
                             </div>
                         )}
-
-                        <div className="mt-4 flex gap-2">
+                    </div>
+                    <div className="p-4 border-t">
+                        <div className="flex gap-2">
                             <input
                                 type="text"
                                 value={state.query}
