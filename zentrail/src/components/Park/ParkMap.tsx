@@ -109,6 +109,15 @@ interface Park {
   designation: string;
   latitude: string;
   longitude: string;
+  states: string;
+  designation: string;
+  description: string;
+  images: {
+    url: string;
+    title: string;
+    caption: string;
+    credit: string;
+  }[];
 }
 
 interface TrailFeature {
