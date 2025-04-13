@@ -9,6 +9,7 @@ import {
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import { FaHiking } from "react-icons/fa";
 
 // Create custom park icon
 const parkIcon = L.icon({
@@ -93,8 +94,19 @@ interface GeoJSONFeature {
 }
 
 interface Park {
+  id: string;
   parkCode: string;
   name: string;
+  fullName: string;
+  states: string;
+  description: string;
+  images: {
+    url: string;
+    title: string;
+    caption: string;
+    credit: string;
+  }[];
+  designation: string;
   latitude: string;
   longitude: string;
   states: string;
@@ -108,9 +120,37 @@ interface Park {
   }[];
 }
 
+interface TrailFeature {
+  type: "Feature";
+  properties: {
+    TRLNAME: string;
+    TRLALTNAME: string;
+    TRLSTATUS: string;
+    TRLSURFACE: string;
+    TRLTYPE: string;
+    TRLCLASS: string;
+    TRLUSE: string;
+    SEASONAL: string;
+    SEASDESC: string;
+    MAINTAINER: string;
+    NOTES: string;
+    UNITCODE: string;
+    UNITNAME: string;
+  };
+  geometry: {
+    type: "LineString" | "MultiLineString";
+    coordinates: number[][] | number[][][];
+  };
+}
+
+interface Trail extends TrailFeature {
+  _id: string;
+}
+
 interface ParkMapProps {
   stateCode: string;
   selectedPark: string;
+  onParkSelect: (parkCode: string) => void;
 }
 
 const stateCoordinates: { [key: string]: [number, number] } = {
@@ -166,10 +206,11 @@ const stateCoordinates: { [key: string]: [number, number] } = {
   WY: [43.075968, -107.290284], // Wyoming
 };
 
-const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
-  stateCode,
-  selectedPark,
-}) => {
+const MapZoomHandler: React.FC<{
+  stateCode: string;
+  selectedPark: string;
+  onParkSelect: (parkCode: string) => void;
+}> = ({ stateCode, selectedPark, onParkSelect }) => {
   const map = useMap();
   const [parks, setParks] = useState<Park[]>([]);
   const [selectedBoundary, setSelectedBoundary] = useState<ParkBoundary | null>(
@@ -178,6 +219,8 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
   const [stateBoundary, setStateBoundary] = useState<StateBoundary | null>(
     null
   );
+  const [trails, setTrails] = useState<TrailFeature[]>([]);
+  const [showTrails, setShowTrails] = useState(false);
 
   useEffect(() => {
     const fetchParks = async () => {
@@ -327,6 +370,84 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
     fetchStateBoundary();
   }, [stateCode, map]);
 
+  useEffect(() => {
+    const fetchTrails = async () => {
+      if (selectedPark) {
+        try {
+          const token = localStorage.getItem("token");
+          const response = await fetch(
+            `${API_URL}/api/trails/unit/${selectedPark}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const trailsData = await response.json();
+          console.log("Raw trails data:", trailsData);
+
+          // Ensure trailsData is an array and has valid data
+          if (!Array.isArray(trailsData)) {
+            console.error("Trails data is not an array:", trailsData);
+            setTrails([]);
+            return;
+          }
+
+          // Format trails with proper error handling
+          const formattedTrails = trailsData
+            .filter((trail: Trail) => {
+              // Check if trail has required properties
+              if (!trail || !trail.geometry || !trail.geometry.coordinates) {
+                console.warn("Invalid trail data:", trail);
+                return false;
+              }
+              return true;
+            })
+            .map((trail: Trail) => {
+              console.log("Trail properties:", trail.properties);
+              // Handle both LineString and MultiLineString
+              const coordinates =
+                trail.geometry.type === "MultiLineString"
+                  ? (trail.geometry.coordinates as number[][][]).flat()
+                  : (trail.geometry.coordinates as number[][]);
+
+              // Filter and process coordinates
+              const validCoordinates = coordinates
+                .filter(
+                  (coord): coord is number[] =>
+                    Array.isArray(coord) && coord.length >= 2
+                )
+                .map((coord) => coord.slice(0, 2));
+
+              return {
+                type: "Feature" as const,
+                properties: trail.properties || {},
+                geometry: {
+                  type: "LineString" as const,
+                  coordinates: validCoordinates,
+                },
+              };
+            })
+            .filter((trail) => trail.geometry.coordinates.length > 0);
+
+          setTrails(formattedTrails);
+        } catch (error) {
+          console.error("Error fetching trails:", error);
+          setTrails([]);
+        }
+      } else {
+        setTrails([]);
+      }
+    };
+
+    fetchTrails();
+  }, [selectedPark]);
+
   const boundaryStyle = {
     fillColor: "#2d5a27", // Dark green for park boundaries
     fillOpacity: 0.2,
@@ -343,8 +464,83 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
     opacity: 1,
   };
 
+  const getTrailStyle = (trail: TrailFeature) => {
+    // Default style
+    const baseStyle = {
+      weight: 2,
+      opacity: 0.8,
+      dashArray: "5, 5",
+    };
+
+    // Debug logging
+    console.log("Trail TRLCLASS:", trail.properties.TRLCLASS);
+
+    // Color based on trail difficulty (TRLCLASS)
+    if (trail.properties.TRLCLASS) {
+      const difficulty = trail.properties.TRLCLASS.toLowerCase().trim();
+      console.log("Processed difficulty:", difficulty);
+
+      // Check if difficulty string contains any of the keywords
+      if (
+        difficulty.includes("easy") ||
+        difficulty.includes("class 1") ||
+        difficulty.includes("1") ||
+        difficulty.includes("easiest")
+      ) {
+        return { ...baseStyle, color: "#4CAF50" }; // Bright green for easy trails
+      } else if (
+        difficulty.includes("moderate") ||
+        difficulty.includes("class 2") ||
+        difficulty.includes("2")
+      ) {
+        return { ...baseStyle, color: "#8BC34A" }; // Light green for moderate trails
+      } else if (
+        difficulty.includes("difficult") ||
+        difficulty.includes("class 3") ||
+        difficulty.includes("3") ||
+        difficulty.includes("strenuous")
+      ) {
+        return { ...baseStyle, color: "#FFC107" }; // Yellow for difficult trails
+      } else if (
+        difficulty.includes("very difficult") ||
+        difficulty.includes("class 4") ||
+        difficulty.includes("4") ||
+        difficulty.includes("very strenuous")
+      ) {
+        return { ...baseStyle, color: "#FF5722" }; // Orange for very difficult trails
+      } else if (
+        difficulty.includes("most difficult") ||
+        difficulty.includes("class 5") ||
+        difficulty.includes("5") ||
+        difficulty.includes("most strenuous")
+      ) {
+        return { ...baseStyle, color: "#F44336" }; // Red for most difficult trails
+      } else {
+        console.log("Unknown difficulty:", difficulty);
+        return { ...baseStyle, color: "#9E9E9E" }; // Gray for unknown difficulty
+      }
+    }
+
+    return { ...baseStyle, color: "#9E9E9E" }; // Default gray
+  };
+
   return (
     <>
+      {/* Add trail toggle button */}
+      <div className="absolute top-4 right-4 z-[1000] bg-white p-2 rounded-lg shadow-lg">
+        <button
+          onClick={() => setShowTrails(!showTrails)}
+          className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-200 ${
+            showTrails ? "bg-[#4CAF50] text-white" : "bg-gray-100 text-gray-700"
+          }`}
+        >
+          <FaHiking className="text-lg" />
+          <span className="text-sm font-medium">
+            {showTrails ? "Hide Trails" : "Show Trails"}
+          </span>
+        </button>
+      </div>
+
       {stateBoundary?.geometry && (
         <GeoJSON
           key={stateBoundary.id || stateBoundary.abbreviation}
@@ -364,7 +560,7 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
               mouseover: (e) => {
                 const layer = e.target;
                 layer.setStyle({
-                  fillOpacity: 0.4, // More visible on hover
+                  fillOpacity: 0.4,
                   weight: 4,
                   opacity: 1,
                 });
@@ -375,7 +571,6 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
               },
             });
 
-            // Add popup with state info
             layer.bindPopup(`
               <div class="text-center">
                 <strong class="block text-[#2B4C7E] text-sm mb-1">
@@ -407,7 +602,6 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
               },
             });
 
-            // Add popup with park info
             layer.bindPopup(`
               <div class="text-center">
                 <strong class="block text-[#2d5a27] text-sm mb-1">
@@ -421,6 +615,100 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
           }}
         />
       )}
+      {showTrails &&
+        trails.map((trail, index) => (
+          <GeoJSON
+            key={`trail-${index}-${trail.properties.TRLNAME}`}
+            data={trail}
+            style={getTrailStyle(trail)}
+            onEachFeature={(feature, layer) => {
+              layer.on({
+                mouseover: (e) => {
+                  const layer = e.target;
+                  const currentStyle = getTrailStyle(feature as TrailFeature);
+                  layer.setStyle({
+                    ...currentStyle,
+                    weight: 3,
+                    opacity: 1,
+                    dashArray: "0",
+                  });
+                },
+                mouseout: (e) => {
+                  const layer = e.target;
+                  layer.setStyle(getTrailStyle(feature as TrailFeature));
+                },
+              });
+
+              layer.bindPopup(`
+              <div class="text-center">
+                <strong class="block text-black text-sm mb-1">
+                  ${feature.properties.TRLNAME}
+                </strong>
+                ${
+                  feature.properties.TRLALTNAME
+                    ? `
+                  <span class="block text-xs text-gray-600 mb-1">
+                    ${feature.properties.TRLALTNAME}
+                  </span>
+                `
+                    : ""
+                }
+                <div class="text-xs text-gray-600">
+                  ${
+                    feature.properties.TRLSTATUS &&
+                    feature.properties.TRLSTATUS !== "Unknown"
+                      ? `<p>Status: ${feature.properties.TRLSTATUS}</p>`
+                      : ""
+                  }
+                  ${
+                    feature.properties.TRLSURFACE &&
+                    feature.properties.TRLSURFACE !== "Unknown"
+                      ? `<p>Surface: ${feature.properties.TRLSURFACE}</p>`
+                      : ""
+                  }
+                  ${
+                    feature.properties.TRLTYPE &&
+                    feature.properties.TRLTYPE !== "Unknown"
+                      ? `<p>Type: ${feature.properties.TRLTYPE}</p>`
+                      : ""
+                  }
+                  ${
+                    feature.properties.TRLCLASS &&
+                    feature.properties.TRLCLASS !== "Unknown"
+                      ? `<p>Class: ${feature.properties.TRLCLASS}</p>`
+                      : ""
+                  }
+                  ${
+                    feature.properties.TRLUSE &&
+                    feature.properties.TRLUSE !== "Unknown"
+                      ? `<p>Use: ${feature.properties.TRLUSE}</p>`
+                      : ""
+                  }
+                  ${
+                    feature.properties.SEASONAL === "Yes" &&
+                    feature.properties.SEASDESC
+                      ? `
+                    <p class="text-red-600">Seasonal: ${feature.properties.SEASDESC}</p>
+                  `
+                      : ""
+                  }
+                  ${
+                    feature.properties.MAINTAINER &&
+                    feature.properties.MAINTAINER !== "Unknown"
+                      ? `<p>Maintainer: ${feature.properties.MAINTAINER}</p>`
+                      : ""
+                  }
+                  ${
+                    feature.properties.NOTES
+                      ? `<p>Notes: ${feature.properties.NOTES}</p>`
+                      : ""
+                  }
+                </div>
+              </div>
+            `);
+            }}
+          />
+        ))}
       {parks.map((park) => {
         const lat = parseFloat(park.latitude);
         const lng = parseFloat(park.longitude);
@@ -433,33 +721,45 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
                 selectedPark === park.parkCode ? highlightedParkIcon : parkIcon
               }
               zIndexOffset={selectedPark === park.parkCode ? 1000 : 0}
+              eventHandlers={{
+                click: () => {
+                  map.setView([lat, lng], 10, {
+                    animate: true,
+                    duration: 1,
+                  });
+                },
+                mouseover: (e) => {
+                  const marker = e.target;
+                  marker.openPopup();
+                },
+              }}
             >
               <Popup>
-                <div className="text-center p-2 max-w-xs">
-                  <strong className="block text-[#2B4C7E] text-base mb-2">
+                <div className="text-center min-w-[250px]">
+                  <strong className="block text-[#2B4C7E] text-lg mb-2">
                     {park.name}
                   </strong>
-                  {park.images && park.images.length > 0 && (
-                    <img
-                      src={park.images[0].url}
-                      alt={park.images[0].title}
-                      className="w-full h-32 object-cover rounded-lg mb-2"
-                    />
-                  )}
-                  <div className="text-sm text-gray-700 mb-2">
-                    <div className="mb-1">
-                      <span className="font-medium">State: </span>
-                      {park.states}
-                    </div>
-                    <div className="mb-1">
-                      <span className="font-medium">Designation: </span>
-                      {park.designation}
-                    </div>
-                    {park.description && (
-                      <p className="text-xs mt-2 text-gray-600 line-clamp-3">
-                        {park.description}
-                      </p>
-                    )}
+                  <img
+                    src={park.images[0].url}
+                    alt={park.name}
+                    className="w-full h-48 object-cover rounded-lg mb-3"
+                    onError={(e) => {
+                      e.currentTarget.src = `https://source.unsplash.com/400x300/?${encodeURIComponent(
+                        park.name
+                      )},national+park`;
+                    }}
+                  />
+                  <div className="text-xs text-gray-600">
+                    <p className="mb-1">
+                      <span className="font-medium">Location:</span>{" "}
+                      {park.latitude}, {park.longitude}
+                    </p>
+                    <p className="mb-1">
+                      <span className="font-medium">State:</span> {park.states}
+                    </p>
+                  </div>
+                  <div className="text-xs text-gray-600 mt-2">
+                    <p className="line-clamp-2">{park.description}</p>
                   </div>
                 </div>
               </Popup>
@@ -472,7 +772,11 @@ const MapZoomHandler: React.FC<{ stateCode: string; selectedPark: string }> = ({
   );
 };
 
-const ParkMap: React.FC<ParkMapProps> = ({ stateCode, selectedPark }) => {
+const ParkMap: React.FC<ParkMapProps> = ({
+  stateCode,
+  selectedPark,
+  onParkSelect,
+}) => {
   return (
     <div className="w-full h-[710px]">
       <MapContainer
@@ -484,7 +788,11 @@ const ParkMap: React.FC<ParkMapProps> = ({ stateCode, selectedPark }) => {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
-        <MapZoomHandler stateCode={stateCode} selectedPark={selectedPark} />
+        <MapZoomHandler
+          stateCode={stateCode}
+          selectedPark={selectedPark}
+          onParkSelect={onParkSelect}
+        />
       </MapContainer>
     </div>
   );
