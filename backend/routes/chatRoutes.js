@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const chatController = require('../controllers/chatController');
-const { authenticateToken } = require('../middleware/auth');
+const { handleChat, generateItinerary } = require('../controllers/chatController');
+const { verifyToken } = require('../middleware/auth');
 
-// Route for chat interactions
-router.post('/', authenticateToken, chatController.handleChat);
+// Chat endpoint
+router.post('/chat', verifyToken, handleChat);
 
-// Route for getting itinerary
-router.post('/generate-itinerary', authenticateToken, chatController.generateItinerary);
+// Itinerary generation endpoint
+router.post('/itinerary', verifyToken, generateItinerary);
 
 module.exports = router;

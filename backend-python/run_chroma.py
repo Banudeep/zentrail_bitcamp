@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any
 import numpy as np
 import torch
 import logging
@@ -9,6 +9,9 @@ from transformers import AutoTokenizer, AutoModel
 import uvicorn
 from dotenv import load_dotenv
 import os
+from datetime import datetime
+from enum import Enum
+from pymongo import MongoClient
 
 # Set up logging
 logging.basicConfig(
@@ -31,62 +34,207 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Sample data - replace with your actual park data
-PARK_DATA = [
+# Initialize BERT model and tokenizer
+tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+model = AutoModel.from_pretrained('bert-base-uncased')
+
+# MongoDB connection
+def get_db_connection():
+    client = MongoClient(os.getenv("MONGODB_URI"))
+    return client[os.getenv("DB_NAME", "zentrail")]
+
+class TimeOfDay(str, Enum):
+    MORNING = "morning"
+    AFTERNOON = "afternoon"
+    EVENING = "evening"
+    NIGHT = "night"
+
+class ParkPreferences(BaseModel):
+    start_date: str
+    end_date: str
+    group_size: int
+    time_preferences: List[TimeOfDay]
+
+class TripPlanningQuestion(BaseModel):
+    id: str
+    question: str
+    type: str
+    options: Optional[List[Dict[str, str]]] = None
+
+class ChatRequest(BaseModel):
+    message: str
+    parkCode: str
+    selectedActivities: Optional[List[str]] = None
+
+class ChatResponse(BaseModel):
+    response: str
+    context: Optional[Dict[str, Any]] = None
+    suggested_activities: Optional[List[Dict[str, str]]] = None
+
+INITIAL_QUESTIONS = [
     {
-        "text": "Yosemite Valley is home to some of the world's most famous waterfalls, including Yosemite Falls.",
-        "metadata": {"park_code": "yose", "type": "attractions", "location": "Yosemite Valley"}
+        "id": "dates",
+        "question": "When are you planning to visit? Please provide start and end dates.",
+        "type": "date_range"
     },
     {
-        "text": "Half Dome is Yosemite's most distinctive natural feature, rising more than 4,737 feet above the valley floor.",
-        "metadata": {"park_code": "yose", "type": "landmark", "location": "Half Dome"}
+        "id": "group_size",
+        "question": "How many people will be in your group?",
+        "type": "number"
     },
     {
-        "text": "The Mist Trail leads hikers to both Vernal Fall and Nevada Fall, offering spectacular views.",
-        "metadata": {"park_code": "yose", "type": "trail", "location": "Mist Trail"}
+        "id": "time_preferences",
+        "question": "What times of day do you prefer for activities?",
+        "type": "multiple_choice",
+        "options": [
+            {"id": "morning", "name": "Morning"},
+            {"id": "afternoon", "name": "Afternoon"},
+            {"id": "evening", "name": "Evening"},
+            {"id": "night", "name": "Night"}
+        ]
     }
 ]
 
-# Initialize the transformer model and tokenizer
-try:
-    model_name = 'bert-base-uncased'
-    logger.info(f"Loading model: {model_name}")
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModel.from_pretrained(model_name)
-    model.eval()  # Set model to evaluation mode
-    logger.info("Model loaded successfully")
-except Exception as e:
-    logger.error(f"Failed to load model: {str(e)}")
-    raise
-
-def mean_pooling(model_output, attention_mask):
-    token_embeddings = model_output[0]
-    input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-    return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
-
-def get_embedding(text):
-    # Tokenize text
-    encoded_input = tokenizer(text, padding=True, truncation=True, return_tensors='pt', max_length=512)
-    
-    # Compute token embeddings
+def get_bert_embedding(text: str) -> np.ndarray:
+    """Get BERT embeddings for a text string"""
+    inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512)
     with torch.no_grad():
-        model_output = model(**encoded_input)
-    
-    # Perform pooling
-    embedding = mean_pooling(model_output, encoded_input['attention_mask'])
-    
-    # Normalize embedding
-    embedding = torch.nn.functional.normalize(embedding, p=2, dim=1)
-    
-    return embedding.numpy()[0]
+        outputs = model(**inputs)
+    # Use mean pooling of last hidden state
+    embeddings = outputs.last_hidden_state.mean(dim=1)
+    return embeddings.numpy()
 
-def cosine_similarity(a, b):
-    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+def semantic_search(query: str, park_info: Dict[str, Any]) -> Dict[str, Any]:
+    """Perform semantic search on park information"""
+    query_embedding = get_bert_embedding(query)
+    
+    # Create embeddings for different aspects of park info
+    park_texts = [
+        park_info.get('description', ''),
+        park_info.get('weatherInfo', ''),
+        park_info.get('directionsInfo', ''),
+        ' '.join([act.get('name', '') for act in park_info.get('activities', [])])
+    ]
+    
+    park_embeddings = [get_bert_embedding(text) for text in park_texts if text]
+    
+    # Calculate similarities
+    similarities = [
+        float(np.dot(query_embedding, park_emb.T) / 
+              (np.linalg.norm(query_embedding) * np.linalg.norm(park_emb)))
+        for park_emb in park_embeddings
+    ]
+    
+    # Get most relevant information
+    max_sim_idx = np.argmax(similarities)
+    return {
+        'relevant_text': park_texts[max_sim_idx],
+        'similarity_score': similarities[max_sim_idx]
+    }
 
-class QueryRequest(BaseModel):
-    query: str
-    park_code: str
-    n_results: Optional[int] = 3
+def filter_activities_by_query(query: str, activities: List[Dict[str, str]], threshold: float = 0.5) -> List[Dict[str, str]]:
+    """Filter activities based on semantic similarity to the query"""
+    query_embedding = get_bert_embedding(query)
+    
+    results = []
+    for activity in activities:
+        activity_embedding = get_bert_embedding(activity['name'])
+        similarity = float(np.dot(query_embedding, activity_embedding.T) / 
+                         (np.linalg.norm(query_embedding) * np.linalg.norm(activity_embedding)))
+        if similarity > threshold:
+            results.append({**activity, 'relevance': similarity})
+    
+    return sorted(results, key=lambda x: x['relevance'], reverse=True)
+
+@app.get("/park/{park_code}/activities")
+async def get_park_activities(park_code: str):
+    """Get activities for a specific park from MongoDB"""
+    try:
+        db = get_db_connection()
+        
+        # Find the park by parkCode
+        park = db.parks.find_one({"parkCode": park_code})
+        
+        if not park:
+            raise HTTPException(status_code=404, detail="Park not found")
+        
+        # Extract activities from the park document
+        activities = park.get('activities', [])
+        
+        return {
+            "activities": activities
+        }
+    except Exception as e:
+        logger.error(f"Error fetching park activities: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error fetching park activities")
+
+@app.get("/planning/initial-questions")
+async def get_initial_questions():
+    """Get the initial planning questions"""
+    return {"questions": INITIAL_QUESTIONS}
+
+@app.post("/planning/save-preferences/{park_code}")
+async def save_preferences(park_code: str, preferences: ParkPreferences):
+    """Save user preferences for a park visit"""
+    try:
+        db = get_db_connection()
+        # You might want to store these preferences in a separate collection
+        db.trip_preferences.insert_one({
+            "parkCode": park_code,
+            "preferences": preferences.dict(),
+            "created_at": datetime.utcnow()
+        })
+        return {"status": "success", "message": "Preferences saved successfully"}
+    except Exception as e:
+        logger.error(f"Error saving preferences: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error saving preferences")
+
+@app.post("/chat")
+async def chat(request: ChatRequest) -> ChatResponse:
+    try:
+        db = get_db_connection()
+        park = db.parks.find_one({"parkCode": request.parkCode})
+        
+        if not park:
+            raise HTTPException(status_code=404, detail="Park not found")
+        
+        # Get relevant context using BERT
+        search_result = semantic_search(request.message, park)
+        
+        # Filter activities based on the query
+        relevant_activities = filter_activities_by_query(
+            request.message, 
+            park.get('activities', [])
+        )
+        
+        # Create response context
+        context = {
+            "parkName": park.get("fullName"),
+            "activities": request.selectedActivities if request.selectedActivities else [act.get("id") for act in relevant_activities[:5]],
+            "relevantInfo": search_result["relevant_text"],
+            "similarity": search_result["similarity_score"]
+        }
+        
+        # Generate response based on context
+        base_response = f"Here's what I found about {park.get('fullName')}:\n{search_result['relevant_text']}"
+        
+        if relevant_activities:
+            activities_text = "\n\nRelated activities you might enjoy:\n" + "\n".join([
+                f"- {activity['name']}" for activity in relevant_activities[:5]
+            ])
+            response = base_response + activities_text
+        else:
+            response = base_response
+        
+        return ChatResponse(
+            response=response, 
+            context=context,
+            suggested_activities=relevant_activities[:5]
+        )
+        
+    except Exception as e:
+        logger.error(f"Chat error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
 async def root():
@@ -97,41 +245,8 @@ async def health_check():
     return {
         "status": "healthy",
         "model": "bert-base-uncased",
-        "model_loaded": model is not None
+        "model_loaded": True
     }
-
-@app.post("/query")
-async def query_collection(request: QueryRequest):
-    try:
-        # Get query embedding
-        query_embedding = get_embedding(request.query)
-        
-        # Calculate similarities with all texts
-        similarities = []
-        for item in PARK_DATA:
-            if request.park_code and item['metadata']['park_code'] != request.park_code:
-                continue
-            doc_embedding = get_embedding(item['text'])
-            similarity = cosine_similarity(query_embedding, doc_embedding)
-            similarities.append((similarity, item))
-        
-        # Sort by similarity and get top k results
-        similarities.sort(key=lambda x: x[0], reverse=True)
-        top_k = similarities[:request.n_results]
-        
-        results = {
-            "documents": [[item[1]['text'] for item in top_k]],
-            "metadatas": [[item[1]['metadata'] for item in top_k]],
-            "scores": [[float(item[0]) for item in top_k]]
-        }
-        
-        return {
-            "results": results,
-            "status": "success"
-        }
-    except Exception as e:
-        logger.error(f"Error during query: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     try:

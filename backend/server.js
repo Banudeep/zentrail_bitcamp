@@ -5,6 +5,8 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const passport = require("passport");
 const session = require("express-session");
+const { spawn } = require('child_process');
+const path = require('path');
 
 // Import passport config
 require("./config/passport");
@@ -15,11 +17,9 @@ const app = express();
 app.use(
   cors({
     origin: ["http://localhost:5173", "http://127.0.0.1:5173", "*"],
-    // origin: "*",
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    // allowedHeaders: ["*"],
   })
 );
 
@@ -107,6 +107,26 @@ const connectDB = async () => {
   }
 };
 
+// Function to start Python server
+const startPythonServer = () => {
+  const pythonPath = path.join(__dirname, '..', 'backend-python', 'run_chroma.py');
+  const pythonProcess = spawn('python', [pythonPath]);
+
+  pythonProcess.stdout.on('data', (data) => {
+    console.log(`Python server output: ${data}`);
+  });
+
+  pythonProcess.stderr.on('data', (data) => {
+    console.error(`Python server error: ${data}`);
+  });
+
+  pythonProcess.on('close', (code) => {
+    console.log(`Python server exited with code ${code}`);
+  });
+
+  return pythonProcess;
+};
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error("Error:", err.stack);
@@ -174,7 +194,10 @@ const startServer = async (initialPort) => {
 // Modified server start
 const PORT = process.env.PORT || 5001;
 connectDB()
-  .then(() => startServer(PORT))
+  .then(() => {
+    startPythonServer();
+    return startServer(PORT);
+  })
   .catch((err) => {
     console.error("Failed to start server:", err);
     process.exit(1);

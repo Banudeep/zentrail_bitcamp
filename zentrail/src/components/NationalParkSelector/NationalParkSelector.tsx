@@ -115,7 +115,7 @@ const NationalParkSelector: React.FC<NationalParkSelectorProps> = ({
   };
 
   const handlePlanTrip = (parkCode: string) => {
-    navigate(`/parks/${parkCode}`);
+    navigate(`/plan?parkCode=${parkCode}`);
   };
 
   return (
