@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Optional
 import uvicorn
 from main import chatbot

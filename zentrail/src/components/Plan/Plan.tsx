@@ -23,7 +23,7 @@ import {
   useMap,
 } from "react-leaflet";
 import { Feature, Geometry, FeatureCollection } from "geojson";
-import { PathOptions } from "leaflet";
+import { PathOptions, LineCapShape, LineJoinShape } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import axios from "axios";
@@ -150,12 +150,15 @@ const transformToGeoJSON = (trail: any): Trail | null => {
   }
 };
 
-const boundaryStyle = {
+const boundaryStyle: PathOptions = {
   fillColor: "#2C3930",
-  fillOpacity: 0.15,
+  fillOpacity: 0.12,
   color: "#2C3930",
-  weight: 2.5,
-  opacity: 0.9,
+  weight: 1.5,
+  opacity: 1,
+  dashArray: undefined,
+  lineCap: "butt" as LineCapShape,
+  lineJoin: "miter" as LineJoinShape,
 };
 
 const MapController: React.FC<{
@@ -178,7 +181,16 @@ const MapController: React.FC<{
         // Add park boundary to bounds
         if (parkBoundary?.boundaryData?.features[0]) {
           const boundaryLayer = L.geoJSON(
-            parkBoundary.boundaryData.features[0]
+            parkBoundary.boundaryData.features[0],
+            {
+              style: {
+                weight: 1.5,
+                opacity: 1,
+                color: "#2C3930",
+                fillOpacity: 0.12,
+                fillColor: "#2C3930",
+              },
+            }
           );
           bounds.extend(boundaryLayer.getBounds());
           hasFeatures = true;
@@ -206,8 +218,8 @@ const MapController: React.FC<{
         if (hasFeatures) {
           // Fit the map to the bounds with some padding
           map.fitBounds(bounds, {
-            padding: [100, 100],
-            maxZoom: 12,
+            padding: [50, 50],
+            maxZoom: 11,
             animate: true,
           });
           initialBoundSet.current = true;
@@ -216,18 +228,17 @@ const MapController: React.FC<{
           const lat = parseFloat(park.latitude);
           const lng = parseFloat(park.longitude);
           if (!isNaN(lat) && !isNaN(lng)) {
-            map.setView([lat, lng], 11, { animate: true });
+            map.setView([lat, lng], 10, { animate: true });
             initialBoundSet.current = true;
           }
         }
       } catch (error) {
         console.error("Error setting map view:", error);
-        // Fallback to park center if error occurs
         if (park) {
           const lat = parseFloat(park.latitude);
           const lng = parseFloat(park.longitude);
           if (!isNaN(lat) && !isNaN(lng)) {
-            map.setView([lat, lng], 11, { animate: true });
+            map.setView([lat, lng], 10, { animate: true });
             initialBoundSet.current = true;
           }
         }
@@ -1099,9 +1110,9 @@ const Plan: React.FC = () => {
                           const layer = e.target;
                           layer.setStyle({
                             fillColor: "#2C3930",
-                            fillOpacity: 0.3,
+                            fillOpacity: 0.25,
                             color: "#2C3930",
-                            weight: 3,
+                            weight: 2,
                             opacity: 1,
                           });
                         },
