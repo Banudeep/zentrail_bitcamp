@@ -6,31 +6,48 @@ require("dotenv").config();
 const app = express();
 
 // Middleware
-app.use(cors());
+// Configure CORS to allow the frontend origin and credentialed requests.
+// Using a wildcard ('*') is not allowed when requests include credentials.
+const clientOrigin = process.env.CLIENT_URL || "http://localhost:5173";
+app.use(
+  cors({
+    origin: clientOrigin,
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
-
-const db = mongoose.connection;
-db.on("error", console.error.bind(console, "MongoDB connection error:"));
-db.once("open", () => {
-  console.log("Connected to MongoDB");
-});
+// Note: modern MongoDB driver ignores `useNewUrlParser` and `useUnifiedTopology` options
+mongoose
+  .connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log("Connected to MongoDB");
+  })
+  .catch((err) => {
+    // Log error clearly and keep the process alive so we can inspect the problem
+    console.error(
+      "MongoDB connection error:",
+      err && err.message ? err.message : err
+    );
+  });
 
 // Routes
 const parkBoundariesRouter = require("./routes/parkBoundaries");
-const parkRoutes = require("./routes/parks");
+const parkRoutes = require("./routes/parkRoutes");
+const authRoutes = require("./routes/authRoutes");
 const stateBoundaryRoutes = require("./routes/stateBoundaries");
 const campgroundRoutes = require("./routes/campgroundRoutes");
+const trailsRoutes = require("./routes/trails");
+const userStatsRoutes = require("./routes/userStatsRoutes");
 
 app.use("/api/park_boundaries", parkBoundariesRouter);
 app.use("/api/parks", parkRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/states", stateBoundaryRoutes);
 app.use("/api/campgrounds", campgroundRoutes);
+app.use("/api/trails", trailsRoutes);
+app.use("/api/user_stats", userStatsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
