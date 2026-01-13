@@ -132,7 +132,12 @@ router.get('/google/callback',
   }
 );
 
-// Mount routes BEFORE the 404 handler
-router.post('/update-profile', authController.updateProfile);
+// Protected routes (require authentication)
+router.put('/user', verifyToken, authController.updateProfile);
+router.put('/change-password', verifyToken, authController.changePassword);
+router.delete('/user', verifyToken, authController.deleteAccount);
+
+// Legacy route (keeping for backward compatibility)
+router.post('/update-profile', verifyToken, authController.updateProfile);
 
 module.exports = router; 

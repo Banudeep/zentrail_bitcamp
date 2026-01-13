@@ -3,162 +3,131 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const StateBoundary = require("../models/StateBoundary");
 
-// Diagnostic route to check raw MongoDB collection
-router.get("/debug/raw", async (req, res) => {
-  try {
-    const connection = mongoose.connection;
-    const dbName = connection.db.databaseName;
-    const db = connection.db;
+/**
+ * Helper function to get the correct database connection
+ * Ensures we're querying the 'zentrail' database
+ */
+const getDatabase = () => {
+  const connection = mongoose.connection;
+  const currentDb = connection.db.databaseName;
 
-    // Try the default database first
-    let collection = db.collection("us_state_boundaries");
-    let count = await collection.countDocuments({});
-    let sample = await collection.find({}).limit(3).toArray();
-
-    // If no results, try explicitly using the "zentrail" database
-    if (count === 0 && dbName !== "zentrail") {
-      console.log(
-        `[Debug] No results in ${dbName}, trying zentrail database...`
-      );
-      const zentrailDb = connection.client.db("zentrail");
-      collection = zentrailDb.collection("us_state_boundaries");
-      count = await collection.countDocuments({});
-      sample = await collection.find({}).limit(3).toArray();
-    }
-
-    // Get all field names from first document if it exists
-    let fields = [];
-    if (sample.length > 0) {
-      fields = Object.keys(sample[0]);
-    }
-
-    res.json({
-      connectedDatabase: dbName,
-      collection: "us_state_boundaries",
-      count,
-      sampleFields: fields,
-      sampleDocuments: sample.map((doc) => ({
-        _id: doc._id,
-        // Show top-level fields only (no geometry coordinates)
-        ...Object.keys(doc).reduce((acc, key) => {
-          if (key === "geometry") {
-            acc[key] = {
-              type: doc[key]?.type,
-              hasCoordinates: !!doc[key]?.coordinates,
-              coordinateDepth: doc[key]?.coordinates
-                ? Array.isArray(doc[key].coordinates)
-                  ? Array.isArray(doc[key].coordinates[0])
-                    ? Array.isArray(doc[key].coordinates[0][0])
-                      ? "4D"
-                      : "3D"
-                    : "2D"
-                  : "1D"
-                : "none",
-            };
-          } else if (key !== "_id") {
-            acc[key] = typeof doc[key] === "object" ? "[Object]" : doc[key];
-          }
-          return acc;
-        }, {}),
-      })),
-    });
-  } catch (error) {
-    console.error("Error in debug route:", error);
-    res.status(500).json({ error: error.message, stack: error.stack });
-  }
-});
-//
-// Helper function to convert MongoDB number objects to regular numbers
-const convertMongoNumbers = (obj) => {
-  if (obj === null || obj === undefined) return obj;
-
-  if (typeof obj === "object" && obj.$numberDouble) {
-    return parseFloat(obj.$numberDouble);
+  // If already connected to zentrail, use it
+  if (currentDb === "zentrail") {
+    return connection.db;
   }
 
-  if (Array.isArray(obj)) {
-    return obj.map(convertMongoNumbers);
-  }
-
-  if (typeof obj === "object") {
-    const result = {};
-    for (const key in obj) {
-      result[key] = convertMongoNumbers(obj[key]);
-    }
-    return result;
-  }
-
-  return obj;
+  // Otherwise, get the zentrail database explicitly
+  return connection.client.db("zentrail");
 };
 
-// Get all state boundaries (only name and abbreviation)
+/**
+ * Helper function to normalize geometry format
+ * Converts Polygon to MultiPolygon for consistency
+ */
+const normalizeGeometry = (geometry) => {
+  if (!geometry || !geometry.coordinates) {
+    return geometry;
+  }
+
+  if (geometry.type === "Polygon") {
+    return {
+      type: "MultiPolygon",
+      coordinates: [geometry.coordinates],
+    };
+  }
+
+  return geometry;
+};
+
+/**
+ * Helper function to query raw MongoDB collection
+ * Used as fallback when Mongoose model doesn't work
+ */
+const queryRawCollection = async (query = {}) => {
+  const db = getDatabase();
+  const collection = db.collection("us_state_boundaries");
+  return await collection.find(query).toArray();
+};
+
+/**
+ * Helper function to find state by abbreviation in raw collection
+ */
+const findStateInRawCollection = async (abbreviation) => {
+  const db = getDatabase();
+  const collection = db.collection("us_state_boundaries");
+
+  const upper = abbreviation.toUpperCase();
+
+  // Try common field name variations
+  const query = {
+    $or: [
+      { abbreviation: upper },
+      { abbreviation: { $regex: new RegExp(`^${upper}$`, "i") } },
+      { code: upper },
+      { state_code: upper },
+      { postal: upper },
+      { STATE_CODE: upper },
+      { STATE_ABBR: upper },
+      { ABBR: upper },
+    ],
+  };
+
+  return await collection.findOne(query);
+};
+
+/**
+ * Transform raw MongoDB document to expected format
+ */
+const transformStateDocument = (doc) => {
+  if (!doc) return null;
+
+  return {
+    _id: doc._id,
+    name: doc.name || doc.STATE_NAME || doc.state_name || doc.NAME || "Unknown",
+    abbreviation:
+      doc.abbreviation ||
+      doc.code ||
+      doc.state_code ||
+      doc.postal ||
+      doc.STATE_CODE ||
+      doc.STATE_ABBR ||
+      doc.ABBR ||
+      "",
+    geometry: normalizeGeometry(doc.geometry),
+  };
+};
+
+// ============================================================================
+// ROUTES
+// ============================================================================
+
+/**
+ * GET /api/state-boundaries
+ * Get all state boundaries (name and abbreviation only)
+ */
 router.get("/", async (req, res) => {
   try {
-    // Primary: expected fields
+    // Try Mongoose model first
     let states = await StateBoundary.find(
       {},
       { name: 1, abbreviation: 1, _id: 0 }
-    ).lean();
+    )
+      .lean()
+      .sort({ name: 1 });
 
-    // If nothing came back, try broader projections to handle alternate schemas
+    // If Mongoose returns empty, try raw collection
     if (!states || states.length === 0) {
-      const alt = await StateBoundary.find(
-        {},
-        {
-          name: 1,
-          abbreviation: 1,
-          code: 1,
-          state_code: 1,
-          postal: 1,
-        }
-      )
-        .limit(10)
-        .lean();
-
-      const mapped = alt
-        .map((d) => ({
-          name: d.name || d.STATE_NAME || d.state_name || null,
-          abbreviation:
-            d.abbreviation || d.code || d.state_code || d.postal || null,
-        }))
-        .filter((d) => d.name || d.abbreviation);
-
-      // If we were able to map anything, return that
-      if (mapped.length > 0) {
-        const total = await StateBoundary.countDocuments({});
-        return res.json(mapped);
-      }
-
-      // Last resort: query raw MongoDB collection directly
       console.log(
-        "[State Boundaries] Mongoose model returned 0 results, trying raw MongoDB query..."
+        "[State Boundaries] Mongoose returned 0 results, trying raw collection..."
       );
-      const connection = mongoose.connection;
-      // Try zentrail database explicitly
-      const db = connection.client.db("zentrail") || connection.db;
-      const collection = db.collection("us_state_boundaries");
-      const rawDocs = await collection.find({}).limit(50).toArray();
+      const rawDocs = await queryRawCollection();
 
       if (rawDocs.length > 0) {
-        console.log(
-          `[State Boundaries] Found ${rawDocs.length} documents in raw collection`
-        );
-        console.log(
-          `[State Boundaries] Sample document keys:`,
-          Object.keys(rawDocs[0])
-        );
-
-        // Try to extract name and abbreviation from raw documents
-        const mapped = rawDocs
-          .map((doc) => {
-            const name =
-              doc.name ||
-              doc.STATE_NAME ||
-              doc.state_name ||
-              doc.NAME ||
-              doc.State ||
-              null;
-            const abbrev =
+        states = rawDocs
+          .map((doc) => ({
+            name:
+              doc.name || doc.STATE_NAME || doc.state_name || doc.NAME || null,
+            abbreviation:
               doc.abbreviation ||
               doc.code ||
               doc.state_code ||
@@ -166,191 +135,117 @@ router.get("/", async (req, res) => {
               doc.STATE_CODE ||
               doc.STATE_ABBR ||
               doc.ABBR ||
-              doc.Code ||
-              null;
-            return { name, abbreviation: abbrev };
-          })
-          .filter((d) => d.name || d.abbreviation);
-
-        if (mapped.length > 0) {
-          return res.json(mapped);
-        }
+              null,
+          }))
+          .filter((d) => d.name && d.abbreviation)
+          .sort((a, b) => a.name.localeCompare(b.name));
       }
     }
 
-    return res.json(states);
+    return res.json(states || []);
   } catch (error) {
-    console.error("Error fetching state boundaries:", error);
-    return res.status(500).json({ message: "Error fetching state boundaries" });
+    console.error("[State Boundaries] Error fetching all states:", error);
+    return res.status(500).json({
+      message: "Error fetching state boundaries",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 });
 
-// Get state boundary by abbreviation
+/**
+ * GET /api/state-boundaries/:abbreviation
+ * Get state boundary by abbreviation (e.g., AL, AK, CA)
+ */
 router.get("/:abbreviation", async (req, res) => {
   try {
-    const raw = String(req.params.abbreviation || "");
-    const upper = raw.toUpperCase();
-    const lower = raw.toLowerCase();
+    const abbreviation = String(req.params.abbreviation || "").trim();
 
-    console.log(
-      `[State Boundaries] Looking for state: ${raw} (upper: ${upper}, lower: ${lower})`
-    );
+    if (!abbreviation) {
+      return res
+        .status(400)
+        .json({ message: "State abbreviation is required" });
+    }
 
-    // First, try a simple case-insensitive match on abbreviation
+    const upper = abbreviation.toUpperCase();
+
+    // Try Mongoose model first
     let state = await StateBoundary.findOne({
       abbreviation: { $regex: new RegExp(`^${upper}$`, "i") },
     });
 
-    // If not found, try other field names
+    // If not found, try raw collection
     if (!state) {
       console.log(
-        `[State Boundaries] Not found by abbreviation, trying other fields...`
+        `[State Boundaries] Not found via Mongoose, trying raw collection for: ${upper}`
       );
-      state = await StateBoundary.findOne({ code: upper });
-      if (!state) {
-        state = await StateBoundary.findOne({ state_code: upper });
-      }
-      if (!state) {
-        state = await StateBoundary.findOne({ postal: upper });
-      }
-      if (!state) {
-        state = await StateBoundary.findOne({ abbreviation: lower });
-      }
-    }
-
-    // If still not found, try a broader search
-    if (!state) {
-      console.log(`[State Boundaries] Trying case-insensitive regex search...`);
-      const query = {
-        $or: [
-          { abbreviation: { $regex: new RegExp(`^${raw}$`, "i") } },
-          { code: { $regex: new RegExp(`^${raw}$`, "i") } },
-          { state_code: { $regex: new RegExp(`^${raw}$`, "i") } },
-          { postal: { $regex: new RegExp(`^${raw}$`, "i") } },
-        ],
-      };
-      state = await StateBoundary.findOne(query);
-    }
-
-    // Debug: Check what states are actually in the database
-    if (!state) {
-      const sampleStates = await StateBoundary.find({})
-        .limit(5)
-        .select("name abbreviation code state_code postal")
-        .lean();
-      console.log(
-        `[State Boundaries] Sample states in DB:`,
-        JSON.stringify(sampleStates, null, 2)
-      );
-      console.log(
-        `[State Boundaries] Total states in DB:`,
-        await StateBoundary.countDocuments({})
-      );
-
-      // Last resort: query raw MongoDB collection directly
-      console.log("[State Boundaries] Trying raw MongoDB query as fallback...");
-      const connection = mongoose.connection;
-      // Try zentrail database explicitly
-      const db = connection.client.db("zentrail") || connection.db;
-      const collection = db.collection("us_state_boundaries");
-
-      // Try various field name combinations
-      const rawState = await collection.findOne({
-        $or: [
-          { abbreviation: { $regex: new RegExp(`^${raw}$`, "i") } },
-          { code: { $regex: new RegExp(`^${raw}$`, "i") } },
-          { state_code: { $regex: new RegExp(`^${raw}$`, "i") } },
-          { postal: { $regex: new RegExp(`^${raw}$`, "i") } },
-          { STATE_CODE: { $regex: new RegExp(`^${raw}$`, "i") } },
-          { STATE_ABBR: { $regex: new RegExp(`^${raw}$`, "i") } },
-          { ABBR: { $regex: new RegExp(`^${raw}$`, "i") } },
-          { Code: { $regex: new RegExp(`^${raw}$`, "i") } },
-        ],
-      });
+      const rawState = await findStateInRawCollection(upper);
 
       if (rawState) {
-        console.log(
-          `[State Boundaries] Found state in raw collection:`,
-          Object.keys(rawState)
-        );
-
-        // Convert raw document to expected format
-        const stateObj = {
-          _id: rawState._id,
-          name:
-            rawState.name ||
-            rawState.STATE_NAME ||
-            rawState.state_name ||
-            rawState.NAME ||
-            rawState.State ||
-            "Unknown",
-          abbreviation:
-            rawState.abbreviation ||
-            rawState.code ||
-            rawState.state_code ||
-            rawState.postal ||
-            rawState.STATE_CODE ||
-            rawState.STATE_ABBR ||
-            rawState.ABBR ||
-            rawState.Code ||
-            raw,
-          geometry: rawState.geometry,
-        };
-
-        // Ensure geometry is properly formatted
-        if (stateObj.geometry && stateObj.geometry.coordinates) {
-          if (stateObj.geometry.type === "Polygon") {
-            stateObj.geometry = {
-              type: "MultiPolygon",
-              coordinates: [stateObj.geometry.coordinates],
-            };
-          }
-        }
-
-        return res.json(stateObj);
+        const transformed = transformStateDocument(rawState);
+        return res.json(transformed);
       }
 
       return res.status(404).json({
         message: "State not found",
-        input: raw,
-        searched: { upper, lower, raw },
+        abbreviation: upper,
       });
     }
 
-    console.log(
-      `[State Boundaries] Found state: ${state.name} (${
-        state.abbreviation || state.code || state.state_code || "N/A"
-      })`
-    );
-
-    // Convert to plain object and ensure geometry is properly formatted
+    // Convert Mongoose document to plain object
     const stateObj = state.toObject();
-
-    // If geometry is missing coordinates, try to re-fetch just geometry
-    if (!stateObj.geometry?.coordinates) {
-      const onlyGeom = await StateBoundary.findOne(
-        { _id: state._id },
-        { geometry: 1 }
-      ).lean();
-      if (onlyGeom?.geometry?.coordinates) {
-        stateObj.geometry = onlyGeom.geometry;
-      }
-    }
-
-    // Ensure GeoJSON is MultiPolygon for Leaflet consistency
-    if (stateObj.geometry && stateObj.geometry.coordinates) {
-      if (stateObj.geometry.type === "Polygon") {
-        stateObj.geometry = {
-          type: "MultiPolygon",
-          coordinates: [stateObj.geometry.coordinates],
-        };
-      }
-    }
+    stateObj.geometry = normalizeGeometry(stateObj.geometry);
 
     return res.json(stateObj);
   } catch (error) {
-    console.error("Error fetching state boundary:", error);
-    return res.status(500).json({ message: "Error fetching state boundary" });
+    console.error("[State Boundaries] Error fetching state:", error);
+    return res.status(500).json({
+      message: "Error fetching state boundary",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+});
+
+/**
+ * GET /api/state-boundaries/debug/raw
+ * Diagnostic endpoint to check raw MongoDB collection
+ */
+router.get("/debug/raw", async (req, res) => {
+  try {
+    const db = getDatabase();
+    const collection = db.collection("us_state_boundaries");
+
+    const count = await collection.countDocuments({});
+    const sample = await collection.find({}).limit(3).toArray();
+
+    const fields = sample.length > 0 ? Object.keys(sample[0]) : [];
+
+    res.json({
+      connectedDatabase: db.databaseName,
+      collection: "us_state_boundaries",
+      count,
+      sampleFields: fields,
+      sampleDocuments: sample.map((doc) => ({
+        _id: doc._id,
+        name: doc.name || doc.STATE_NAME || doc.state_name || doc.NAME || null,
+        abbreviation:
+          doc.abbreviation ||
+          doc.code ||
+          doc.state_code ||
+          doc.postal ||
+          doc.STATE_CODE ||
+          doc.STATE_ABBR ||
+          doc.ABBR ||
+          null,
+        hasGeometry: !!doc.geometry,
+        geometryType: doc.geometry?.type || null,
+      })),
+    });
+  } catch (error) {
+    console.error("[State Boundaries] Debug route error:", error);
+    res.status(500).json({
+      error: error.message,
+      stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
+    });
   }
 });
 

@@ -85,16 +85,26 @@ const connectDB = async () => {
     );
 
     const conn = await mongoose.connect(process.env.MONGODB_URI);
+    const dbName = conn.connection.db.databaseName;
     console.log(`MongoDB Connected: ${conn.connection.host}`);
+    console.log(`Connected to database: ${dbName}`);
 
     // List all collections
-    const collections = await mongoose.connection.db
+    const collections = await conn.connection.db
       .listCollections()
       .toArray();
     console.log(
       "Available collections:",
       collections.map((c) => c.name)
     );
+    
+    // Warn if not connected to zentrail
+    if (dbName !== "zentrail") {
+      console.warn(
+        `⚠️  Warning: Connected to database "${dbName}" instead of "zentrail". ` +
+        `Update MONGODB_URI to include "/zentrail" before the query parameters.`
+      );
+    }
 
     // Count users
     const userCount = await mongoose.connection.db

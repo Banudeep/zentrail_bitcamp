@@ -11,8 +11,15 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: function() {
+      // Password is required only if not using OAuth
+      return !this.googleId;
+    },
     minlength: 6
+  },
+  googleId: {
+    type: String,
+    sparse: true
   },
   firstName: {
     type: String,
@@ -45,6 +52,9 @@ userSchema.pre('save', async function(next) {
 
 // Method to compare passwords
 userSchema.methods.comparePassword = async function(candidatePassword) {
+  if (!this.password) {
+    return false;
+  }
   return bcrypt.compare(candidatePassword, this.password);
 };
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -6,12 +6,13 @@ import {
   Popup,
   useMap,
   GeoJSON,
+  ZoomControl,
 } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import { FaHiking } from "react-icons/fa";
-import { FaCampground } from "react-icons/fa";
+import { FaHiking, FaCampground, FaMoon, FaSun, FaGlobe } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "../../context/ThemeContext";
 
 // Create custom park icon
 const parkIcon = L.icon({
@@ -225,16 +226,20 @@ const stateCoordinates: { [key: string]: [number, number] } = {
 };
 
 // Create batch processing utility
-const processBatch = <T, R>(items: T[], batchSize: number, processor: (item: T) => R | null): R[] => {
+const processBatch = <T, R>(
+  items: T[],
+  batchSize: number,
+  processor: (item: T) => R | null
+): R[] => {
   const results: R[] = [];
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
-    batch.forEach(item => {
+    batch.forEach((item) => {
       try {
         const result = processor(item);
         if (result) results.push(result);
       } catch (error) {
-        console.warn('Error processing item:', error);
+        console.warn("Error processing item:", error);
       }
     });
   }
@@ -245,20 +250,46 @@ const MapZoomHandler: React.FC<{
   stateCode: string;
   selectedPark: string;
   onParkSelect: (parkCode: string) => void;
-}> = ({ stateCode, selectedPark, onParkSelect }) => {
+  isDarkMap: boolean;
+  onToggleMapTheme: () => void;
+  containerHeight?: number;
+}> = ({
+  stateCode,
+  selectedPark,
+  onParkSelect,
+  isDarkMap,
+  onToggleMapTheme,
+  containerHeight = 710,
+}) => {
   const map = useMap();
   const navigate = useNavigate();
   const [parks, setParks] = useState<Park[]>([]);
-  const [selectedBoundary, setSelectedBoundary] = useState<ParkBoundary | null>(null);
-  const [stateBoundary, setStateBoundary] = useState<StateBoundary | null>(null);
+  const [selectedBoundary, setSelectedBoundary] = useState<ParkBoundary | null>(
+    null
+  );
+  const [stateBoundary, setStateBoundary] = useState<StateBoundary | null>(
+    null
+  );
   const [trails, setTrails] = useState<TrailFeature[]>([]);
-  const [showTrails, setShowTrails] = useState(false);
+  const [showTrails, setShowTrails] = useState(true); // Show trails by default
   const [isProcessingTrails, setIsProcessingTrails] = useState(false);
   const [campgrounds, setCampgrounds] = useState<Campground[]>([]);
   const [showCampgrounds, setShowCampgrounds] = useState(false);
 
   // Cleanup function for abortion of fetch requests
   const abortController = React.useRef<AbortController | null>(null);
+  // Track if we're currently fetching to prevent duplicate requests
+  const isFetchingTrailsRef = React.useRef(false);
+  const isFetchingCampgroundsRef = React.useRef(false);
+  const isFetchingParkBoundaryRef = React.useRef(false);
+  const isFetchingStateBoundaryRef = React.useRef(false);
+  // Store map in ref to avoid dependency issues
+  const mapRef = React.useRef(map);
+
+  // Update map ref when it changes
+  useEffect(() => {
+    mapRef.current = map;
+  }, [map]);
 
   useEffect(() => {
     return () => {
@@ -269,8 +300,9 @@ const MapZoomHandler: React.FC<{
   }, []);
 
   const fetchCampgrounds = React.useCallback(async () => {
-    if (!selectedPark) return;
+    if (!selectedPark || isFetchingCampgroundsRef.current) return;
 
+    isFetchingCampgroundsRef.current = true;
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
@@ -289,15 +321,17 @@ const MapZoomHandler: React.FC<{
     } catch (error) {
       console.error("Error fetching campgrounds:", error);
       setCampgrounds([]);
+    } finally {
+      isFetchingCampgroundsRef.current = false;
     }
   }, [selectedPark]);
 
   useEffect(() => {
     fetchCampgrounds();
-  }, [fetchCampgrounds]);
+  }, [selectedPark]); // Only depend on selectedPark, not the callback
 
   const fetchTrails = React.useCallback(async () => {
-    if (!selectedPark || isProcessingTrails) return;
+    if (!selectedPark || isFetchingTrailsRef.current) return;
 
     // Abort previous request if exists
     if (abortController.current) {
@@ -305,6 +339,7 @@ const MapZoomHandler: React.FC<{
     }
     abortController.current = new AbortController();
 
+    isFetchingTrailsRef.current = true;
     setIsProcessingTrails(true);
     try {
       const token = localStorage.getItem("token");
@@ -312,7 +347,7 @@ const MapZoomHandler: React.FC<{
         `${API_URL}/api/trails/unit/${selectedPark}`,
         {
           headers: { Authorization: `Bearer ${token}` },
-          signal: abortController.current.signal
+          signal: abortController.current.signal,
         }
       );
 
@@ -322,30 +357,61 @@ const MapZoomHandler: React.FC<{
 
       const trailsData = await response.json();
 
+      console.log(
+        `[Trails] Fetched ${
+          Array.isArray(trailsData) ? trailsData.length : 0
+        } trails for park: ${selectedPark}`
+      );
+
       if (!Array.isArray(trailsData)) {
         console.warn("Trails data is not an array:", trailsData);
         setTrails([]);
         return;
       }
 
+      if (trailsData.length === 0) {
+        console.log(`[Trails] No trails found for park: ${selectedPark}`);
+        setTrails([]);
+        return;
+      }
+
       // Process trails in batches of 50 to prevent UI blocking
       const formattedTrails = processBatch(trailsData, 50, (trail: Trail) => {
-        if (!trail?.geometry?.coordinates) return null;
+        if (!trail?.geometry?.coordinates) {
+          console.warn(
+            "[Trails] Trail missing geometry:",
+            trail?.properties?.TRLNAME
+          );
+          return null;
+        }
 
         try {
-          const coordinates = trail.geometry.type === "MultiLineString"
-            ? (trail.geometry.coordinates as number[][][]).flat()
-            : (trail.geometry.coordinates as number[][]);
+          const coordinates =
+            trail.geometry.type === "MultiLineString"
+              ? (trail.geometry.coordinates as number[][][]).flat()
+              : (trail.geometry.coordinates as number[][]);
 
+          // GeoJSON uses [longitude, latitude] format
+          // Validate: lng should be -180 to 180, lat should be -90 to 90
           const validCoordinates = coordinates
-            .filter((coord): coord is number[] => 
-              Array.isArray(coord) && coord.length >= 2 &&
-              !isNaN(coord[0]) && !isNaN(coord[1]) &&
-              Math.abs(coord[0]) <= 180 && Math.abs(coord[1]) <= 90
-            )
-            .map(coord => coord.slice(0, 2));
+            .filter((coord): coord is number[] => {
+              if (!Array.isArray(coord) || coord.length < 2) return false;
+              const [lng, lat] = coord;
+              return (
+                !isNaN(lng) &&
+                !isNaN(lat) &&
+                Math.abs(lng) <= 180 &&
+                Math.abs(lat) <= 90
+              );
+            })
+            .map((coord) => [coord[0], coord[1]]); // Keep as [lng, lat]
 
-          if (validCoordinates.length < 2) return null;
+          if (validCoordinates.length < 2) {
+            console.warn(
+              `[Trails] Trail has insufficient valid coordinates: ${trail?.properties?.TRLNAME}`
+            );
+            return null;
+          }
 
           return {
             type: "Feature" as const,
@@ -356,30 +422,44 @@ const MapZoomHandler: React.FC<{
             },
           };
         } catch (error) {
-          console.warn("Error processing trail:", error);
+          console.warn(
+            "Error processing trail:",
+            error,
+            trail?.properties?.TRLNAME
+          );
           return null;
         }
       });
 
+      console.log(
+        `[Trails] Successfully processed ${formattedTrails.length} out of ${trailsData.length} trails`
+      );
       setTrails(formattedTrails);
+
+      // Auto-show trails if we have valid trails
+      if (formattedTrails.length > 0 && !showTrails) {
+        console.log("[Trails] Auto-showing trails since we have valid data");
+        setShowTrails(true);
+      }
     } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          console.log('Fetch aborted');
-        } else {
-          console.error("Error fetching trails:", error);
-          setTrails([]);
-        }
+      if (error instanceof Error && error.name === "AbortError") {
+        console.log("Fetch aborted");
+      } else {
+        console.error("Error fetching trails:", error);
+        setTrails([]);
+      }
     } finally {
       setIsProcessingTrails(false);
+      isFetchingTrailsRef.current = false;
     }
-  }, [selectedPark, isProcessingTrails]);
+  }, [selectedPark]); // Removed isProcessingTrails from dependencies
 
   useEffect(() => {
     fetchTrails();
-  }, [fetchTrails]);
+  }, [selectedPark]); // Only depend on selectedPark, not the callback
 
   const handlePlanTrip = (parkCode: string) => {
-    navigate(`/plan/${parkCode}`);
+    navigate(`/plan/${parkCode}`, { state: { from: "explore" } });
   };
 
   useEffect(() => {
@@ -412,49 +492,68 @@ const MapZoomHandler: React.FC<{
   }, []);
 
   useEffect(() => {
+    if (!selectedPark || isFetchingParkBoundaryRef.current) {
+      if (!selectedPark) {
+        setSelectedBoundary(null);
+      }
+      return;
+    }
+
     const fetchParkBoundary = async () => {
-      if (selectedPark) {
-        try {
-          const token = localStorage.getItem("token");
-          const response = await fetch(
-            `${API_URL}/api/park-boundaries/${selectedPark}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+      isFetchingParkBoundaryRef.current = true;
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(
+          `${API_URL}/api/park-boundaries/${selectedPark}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
+        );
 
-          const boundaryData = await response.json();
-          setSelectedBoundary(boundaryData);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-          // If boundary exists, fit the map to the boundary
-          if (
-            boundaryData &&
-            boundaryData.boundaryData &&
-            boundaryData.boundaryData.features[0]
-          ) {
+        const boundaryData = await response.json();
+        setSelectedBoundary(boundaryData);
+
+        // If boundary exists, fit the map to the boundary
+        if (
+          boundaryData &&
+          boundaryData.boundaryData &&
+          boundaryData.boundaryData.features[0]
+        ) {
+          // Ensure map size is up to date, then fit bounds
+          mapRef.current.invalidateSize();
+          // Use setTimeout to ensure size is updated before fitting bounds
+          setTimeout(() => {
             const geoJsonLayer = L.geoJSON(
               boundaryData.boundaryData.features[0]
             );
             const bounds = geoJsonLayer.getBounds();
-            map.fitBounds(bounds, { padding: [50, 50] });
-          }
-        } catch (error) {
-          console.error("Error fetching park boundary:", error);
-          setSelectedBoundary(null);
+            // Calculate padding based on visible viewport size
+            const mapSize = mapRef.current.getSize();
+            const paddingX = Math.max(20, mapSize.x * 0.05); // 5% of width, min 20px
+            const paddingY = Math.max(20, mapSize.y * 0.05); // 5% of height, min 20px
+            mapRef.current.fitBounds(bounds, {
+              padding: [paddingY, paddingX],
+              animate: true,
+              duration: 1.0,
+            });
+          }, 100);
         }
-      } else {
+      } catch (error) {
+        console.error("Error fetching park boundary:", error);
         setSelectedBoundary(null);
+      } finally {
+        isFetchingParkBoundaryRef.current = false;
       }
     };
 
     fetchParkBoundary();
-  }, [selectedPark, map]);
+  }, [selectedPark]); // Removed map from dependencies, using ref instead
 
   useEffect(() => {
     if (selectedPark && parks.length > 0) {
@@ -465,70 +564,136 @@ const MapZoomHandler: React.FC<{
         const lat = parseFloat(selectedParkData.latitude);
         const lng = parseFloat(selectedParkData.longitude);
         if (!isNaN(lat) && !isNaN(lng)) {
-          map.setView([lat, lng], 10);
+          // Ensure map size is up to date before zooming
+          mapRef.current.invalidateSize();
+          // Use setTimeout to ensure size is updated before setting view
+          setTimeout(() => {
+            mapRef.current.setView([lat, lng], 10, {
+              animate: true,
+              duration: 1.0,
+            });
+          }, 100);
           return;
         }
       }
     }
-  }, [selectedPark, parks, map]);
+  }, [selectedPark, parks]); // Removed map from dependencies, using ref instead
 
+  // Also zoom when park boundary is loaded (for better fit)
   useEffect(() => {
-    console.log("stateCode in parkmap", stateCode);
-    if (stateCode && stateCoordinates[stateCode]) {
-      const [lat, lng] = stateCoordinates[stateCode];
-      map.setView([lat, lng], 6);
-    } else {
-      map.setView([37.0902, -95.7129], 4);
+    if (selectedPark && selectedBoundary?.geometry) {
+      try {
+        // Ensure map size is up to date, then fit bounds
+        mapRef.current.invalidateSize();
+        // Use setTimeout to ensure size is updated before fitting bounds
+        setTimeout(() => {
+          const feature: GeoJSONFeature = {
+            type: "Feature",
+            geometry: selectedBoundary.geometry,
+            properties: {},
+          };
+          const geoJsonLayer = L.geoJSON(feature);
+          const bounds = geoJsonLayer.getBounds();
+          if (bounds.isValid()) {
+            // Calculate padding based on visible viewport size
+            const mapSize = mapRef.current.getSize();
+            const paddingX = Math.max(20, mapSize.x * 0.05); // 5% of width, min 20px
+            const paddingY = Math.max(20, mapSize.y * 0.05); // 5% of height, min 20px
+            mapRef.current.fitBounds(bounds, {
+              padding: [paddingY, paddingX],
+              animate: true,
+              duration: 1.0,
+            });
+          }
+        }, 100);
+      } catch (error) {
+        console.error("Error fitting bounds to park boundary:", error);
+      }
     }
-  }, [stateCode]);
+  }, [selectedPark, selectedBoundary]);
 
   useEffect(() => {
-    const fetchStateBoundary = async () => {
-      if (stateCode) {
-        try {
-          const token = localStorage.getItem("token");
-          const response = await fetch(
-            `${API_URL}/api/state-boundaries/${stateCode}`,
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const boundaryData = await response.json();
-          console.log("State boundary data:", boundaryData);
-          setStateBoundary(boundaryData);
-
-          // If boundary exists, fit the map to the boundary
-          if (boundaryData?.geometry) {
-            const feature: GeoJSONFeature = {
-              type: "Feature",
-              geometry: boundaryData.geometry,
-              properties: {
-                name: boundaryData.name,
-                stateCode: boundaryData.abbreviation,
-              },
-            };
-            const geoJsonLayer = L.geoJSON(feature);
-            const bounds = geoJsonLayer.getBounds();
-            map.fitBounds(bounds, { padding: [50, 50] });
-          }
-        } catch (error) {
-          console.error("Error fetching state boundary:", error);
-          setStateBoundary(null);
-        }
+    // Only zoom to state if no park is selected
+    if (!selectedPark) {
+      console.log("stateCode in parkmap", stateCode);
+      if (stateCode && stateCoordinates[stateCode]) {
+        const [lat, lng] = stateCoordinates[stateCode];
+        mapRef.current.setView([lat, lng], 6, {
+          animate: true,
+          duration: 1.0,
+        });
       } else {
+        mapRef.current.setView([37.0902, -95.7129], 4, {
+          animate: true,
+          duration: 1.0,
+        });
+      }
+    }
+  }, [stateCode, selectedPark]);
+
+  useEffect(() => {
+    if (!stateCode || isFetchingStateBoundaryRef.current) {
+      if (!stateCode) {
         setStateBoundary(null);
+      }
+      return;
+    }
+
+    const fetchStateBoundary = async () => {
+      isFetchingStateBoundaryRef.current = true;
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(
+          `${API_URL}/api/state-boundaries/${stateCode}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const boundaryData = await response.json();
+        console.log("State boundary data:", boundaryData);
+        setStateBoundary(boundaryData);
+
+        // If boundary exists, fit the map to the boundary
+        if (boundaryData?.geometry) {
+          const feature: GeoJSONFeature = {
+            type: "Feature",
+            geometry: boundaryData.geometry,
+            properties: {
+              name: boundaryData.name,
+              stateCode: boundaryData.abbreviation,
+            },
+          };
+          const geoJsonLayer = L.geoJSON(feature);
+          const bounds = geoJsonLayer.getBounds();
+          // Ensure map size is up to date
+          mapRef.current.invalidateSize();
+          // Calculate padding based on visible viewport size
+          const mapSize = mapRef.current.getSize();
+          const paddingX = Math.max(20, mapSize.x * 0.05); // 5% of width, min 20px
+          const paddingY = Math.max(20, mapSize.y * 0.05); // 5% of height, min 20px
+          mapRef.current.fitBounds(bounds, {
+            padding: [paddingY, paddingX],
+            animate: true,
+            duration: 1.0,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching state boundary:", error);
+        setStateBoundary(null);
+      } finally {
+        isFetchingStateBoundaryRef.current = false;
       }
     };
 
     fetchStateBoundary();
-  }, [stateCode, map]);
+  }, [stateCode]); // Removed map from dependencies, using ref instead
 
   const boundaryStyle = {
     fillColor: "#2d5a27", // Dark green for park boundaries
@@ -608,47 +773,109 @@ const MapZoomHandler: React.FC<{
 
   return (
     <>
+      {/* Map theme toggle button */}
+      <div className="absolute top-2 left-2 md:top-4 md:left-4 z-[1000]">
+        <button
+          onClick={onToggleMapTheme}
+          className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-1.5 md:p-2 rounded-lg shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center gap-1 md:gap-2"
+          title={isDarkMap ? "Switch to light map" : "Switch to dark map"}
+        >
+          {isDarkMap ? (
+            <>
+              <FaSun className="text-base md:text-lg" />
+              <span className="hidden md:inline text-sm font-medium">
+                Light Map
+              </span>
+            </>
+          ) : (
+            <>
+              <FaMoon className="text-base md:text-lg" />
+              <span className="hidden md:inline text-sm font-medium">
+                Dark Map
+              </span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Map controls container - Zoom and USA button */}
+      <div
+        className="absolute right-2 md:right-4 z-[1000] flex flex-col items-end gap-1.5 md:gap-2"
+        style={{
+          bottom: containerHeight ? Math.max(50, containerHeight * 0.06) : 50,
+        }}
+      >
+        {/* Zoom to USA button - positioned below zoom controls */}
+        <button
+          onClick={() => {
+            map.setView([37.0902, -95.7129], 4, {
+              animate: true,
+              duration: 1.0,
+            });
+          }}
+          className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-1.5 md:px-3 md:py-2 rounded-lg shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center justify-center gap-1 md:gap-2"
+          title="Zoom to USA"
+        >
+          <FaGlobe className="text-base md:text-lg flex-shrink-0" />
+          <span className="hidden md:inline text-xs md:text-sm font-medium whitespace-nowrap">
+            USA
+          </span>
+        </button>
+      </div>
+
       {/* Add trail toggle button */}
-      <div className="absolute top-4 right-4 z-[1000] bg-white p-2 rounded-lg shadow-lg flex flex-row gap-2">
+      <div className="absolute top-2 right-2 md:top-4 md:right-4 z-[1000] bg-white dark:bg-gray-800 p-1.5 md:p-2 rounded-lg shadow-lg flex flex-row gap-1 md:gap-2 map-controls">
         <button
           onClick={() => setShowTrails(!showTrails)}
-          className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-200 ${
-            showTrails ? "bg-[#4CAF50] text-white" : "bg-gray-100 text-gray-700"
+          className={`flex items-center gap-1 md:gap-2 px-2 py-1.5 md:px-3 md:py-2 rounded-md transition-colors duration-200 ${
+            showTrails
+              ? "bg-[#4CAF50] dark:bg-gray-600 text-white dark:text-gray-200"
+              : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
           }`}
         >
-          <FaHiking className="text-lg" />
-          <span className="text-sm font-medium">
+          <FaHiking className="text-base md:text-lg" />
+          <span className="hidden md:inline text-sm font-medium">
             {showTrails ? "Hide Trails" : "Show Trails"}
           </span>
         </button>
 
         <button
           onClick={() => setShowCampgrounds(!showCampgrounds)}
-          className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-200 ${
-            showCampgrounds ? "bg-[#FFA726] text-white" : "bg-gray-100 text-gray-700"
+          className={`flex items-center gap-1 md:gap-2 px-2 py-1.5 md:px-3 md:py-2 rounded-md transition-colors duration-200 ${
+            showCampgrounds
+              ? "bg-[#FFA726] dark:bg-gray-600 text-white dark:text-gray-200"
+              : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
           }`}
         >
-          <FaCampground className="text-lg" />
-          <span className="text-sm font-medium">
+          <FaCampground className="text-base md:text-lg" />
+          <span className="hidden md:inline text-sm font-medium">
             {showCampgrounds ? "Hide Campgrounds" : "Show Campgrounds"}
           </span>
         </button>
-        
+
         {/* Trail difficulty legend */}
         {showTrails && (
-          <div className="absolute top-full right-0 mt-2 bg-white p-2 rounded-lg shadow-lg">
-            <div className="text-sm font-medium mb-1">Trail Difficulty:</div>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-4 h-1 bg-[#4CAF50]"></div>
-              <span className="text-xs">Easy</span>
+          <div className="absolute top-full right-0 mt-2 bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg">
+            <div className="text-sm font-medium mb-1 text-gray-900 dark:text-gray-200">
+              Trail Difficulty:
             </div>
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-4 h-1 bg-[#8BC34A]"></div>
-              <span className="text-xs">Moderate</span>
+              <div className="w-4 h-1 bg-[#4CAF50] legend-color"></div>
+              <span className="text-xs text-gray-700 dark:text-gray-300">
+                Easy
+              </span>
+            </div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-4 h-1 bg-[#8BC34A] legend-color"></div>
+              <span className="text-xs text-gray-700 dark:text-gray-300">
+                Moderate
+              </span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-1 bg-[#FFC107]"></div>
-              <span className="text-xs">Difficult</span>
+              <div className="w-4 h-1 bg-[#FFC107] legend-color"></div>
+              <span className="text-xs text-gray-700 dark:text-gray-300">
+                Difficult
+              </span>
             </div>
           </div>
         )}
@@ -889,10 +1116,15 @@ const MapZoomHandler: React.FC<{
               eventHandlers={{
                 click: () => {
                   onParkSelect(park.parkCode);
-                  map.setView([lat, lng], 10, {
-                    animate: true,
-                    duration: 1,
-                  });
+                  // Ensure map size is up to date before zooming
+                  map.invalidateSize();
+                  // Use setTimeout to ensure size is updated before setting view
+                  setTimeout(() => {
+                    map.setView([lat, lng], 10, {
+                      animate: true,
+                      duration: 1,
+                    });
+                  }, 100);
                 },
                 mouseover: (e) => {
                   const marker = e.target;
@@ -946,30 +1178,81 @@ const MapZoomHandler: React.FC<{
   );
 };
 
+// Map theme aware tile layer component
+const MapThemeTileLayer: React.FC<{ isDarkMap: boolean }> = ({ isDarkMap }) => {
+  return isDarkMap ? (
+    <TileLayer
+      url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+      subdomains="abcd"
+      className="dark-map-tiles"
+    />
+  ) : (
+    <TileLayer
+      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    />
+  );
+};
+
 const ParkMap: React.FC<ParkMapProps> = ({
   stateCode,
   selectedPark,
   onParkSelect,
 }) => {
+  const [isDarkMap, setIsDarkMap] = useState(false);
+  const { isDarkMode } = useTheme();
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+  // Initialize map theme based on global dark mode
+  useEffect(() => {
+    setIsDarkMap(isDarkMode);
+  }, [isDarkMode]);
+
+  // Measure container size for responsive button positioning
+  useEffect(() => {
+    const updateSize = () => {
+      if (mapContainerRef.current) {
+        setContainerSize({
+          width: mapContainerRef.current.offsetWidth,
+          height: mapContainerRef.current.offsetHeight,
+        });
+      }
+    };
+
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
+
+  const handleToggleMapTheme = () => {
+    setIsDarkMap((prev) => !prev);
+  };
+
   return (
-    <div className="w-full h-[710px]">
+    <div ref={mapContainerRef} className="w-full h-[710px] relative">
       <MapContainer
         center={[37.0902, -95.7129]}
         zoom={4}
         style={{ height: "100%", width: "100%" }}
+        scrollWheelZoom={true}
+        zoomControl={false}
       >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
+        <ZoomControl position="bottomright" />
+        <MapThemeTileLayer isDarkMap={isDarkMap} />
         <MapZoomHandler
           stateCode={stateCode}
           selectedPark={selectedPark}
           onParkSelect={onParkSelect}
+          isDarkMap={isDarkMap}
+          onToggleMapTheme={handleToggleMapTheme}
+          containerHeight={containerSize.height}
         />
       </MapContainer>
     </div>
   );
 };
 
-export default ParkMap;
+// Memoize to prevent re-mounting when props change
+export default React.memo(ParkMap);

@@ -5,7 +5,8 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useTheme } from "../../context/ThemeContext";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import {
   FaArrowLeft,
   FaHiking,
@@ -13,6 +14,8 @@ import {
   FaComments,
   FaTimes,
   FaDownload,
+  FaMoon,
+  FaSun,
 } from "react-icons/fa";
 import {
   MapContainer,
@@ -21,6 +24,7 @@ import {
   Marker,
   Popup,
   useMap,
+  ZoomControl,
 } from "react-leaflet";
 import { Feature, Geometry, FeatureCollection } from "geojson";
 import { PathOptions, LineCapShape, LineJoinShape } from "leaflet";
@@ -269,6 +273,23 @@ const MapController: React.FC<{
   }
 );
 
+// Map theme aware tile layer component
+const MapThemeTileLayer: React.FC<{ isDarkMap: boolean }> = ({ isDarkMap }) => {
+  return isDarkMap ? (
+    <TileLayer
+      url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+      subdomains="abcd"
+      className="dark-map-tiles"
+    />
+  ) : (
+    <TileLayer
+      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    />
+  );
+};
+
 const getTrailStyle = (feature: Feature<Geometry> | undefined): PathOptions => {
   if (!feature) {
     return {
@@ -324,6 +345,14 @@ const campgroundIcon = L.icon({
 const Plan: React.FC = () => {
   const { parkCode } = useParams<{ parkCode?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isDarkMode } = useTheme();
+  const [isDarkMap, setIsDarkMap] = useState(false);
+
+  // Initialize map theme based on global dark mode
+  useEffect(() => {
+    setIsDarkMap(isDarkMode);
+  }, [isDarkMode]);
 
   const [state, setState] = useState(() => ({
     query: "",
@@ -947,22 +976,44 @@ const Plan: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f5f2e8] to-[#d3d9cf] p-6">
+    <div className="min-h-screen bg-gradient-to-br from-[#f5f2e8] to-[#d3d9cf] dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-4 flex justify-between items-center">
-          <Link
-            to="/explore"
-            className="inline-flex items-center gap-2 text-[#4d5e56] hover:text-[#97a88c] transition-colors duration-200"
+          <button
+            onClick={() => {
+              // Check if we have location state indicating where we came from
+              const from = (location.state as any)?.from;
+              if (from === "home") {
+                navigate("/Home");
+              } else if (from === "explore") {
+                navigate("/explore");
+              } else {
+                // Fallback: go back in history, or to explore if no history
+                if (window.history.length > 1) {
+                  navigate(-1);
+                } else {
+                  navigate("/explore");
+                }
+              }
+            }}
+            className="inline-flex items-center gap-2 text-[#4d5e56] dark:text-gray-300 hover:text-[#97a88c] dark:hover:text-gray-100 transition-colors duration-200"
           >
             <FaArrowLeft className="text-sm" />
-            <span>Back to Explore</span>
-          </Link>
+            <span>
+              {(() => {
+                const from = (location.state as any)?.from;
+                if (from === "home") return "Back to Home";
+                if (from === "explore") return "Back to Explore";
+                return "Back";
+              })()}
+            </span>
+          </button>
 
           {state.currentPark && (
             <button
               onClick={handleDownloadPDF}
               disabled={state.loading}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#2B4C7E] text-white rounded-lg hover:bg-[#1A365D] transition-colors duration-200 disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#2B4C7E] dark:bg-gray-700 text-white rounded-lg hover:bg-[#1A365D] dark:hover:bg-gray-600 transition-colors duration-200 disabled:opacity-50"
             >
               <FaDownload className="text-sm" />
               <span>
@@ -972,21 +1023,21 @@ const Plan: React.FC = () => {
           )}
         </div>
 
-        <h1 className="text-3xl font-bold mb-2 text-center text-[#4d5e56]">
+        <h1 className="text-2xl md:text-3xl font-bold mb-2 text-center text-[#4d5e56] dark:text-gray-200 px-4">
           {state.currentPark
             ? `Plan Your Visit to ${state.currentPark.name}`
             : "Plan Your Park Visit"}
         </h1>
         {state.currentPark && (
-          <p className="text-justify text-[#4d5e56] text-sm leading-relaxed mb-8 max-w-3xl mx-auto px-4">
+          <p className="text-justify text-[#4d5e56] dark:text-gray-300 text-xs md:text-sm leading-relaxed mb-6 md:mb-8 max-w-3xl mx-auto px-4">
             {state.currentPark.description}
           </p>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-bold mb-4 text-[#4d5e56]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+          <div className="space-y-4 md:space-y-6 order-2 lg:order-1">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 md:p-6 border border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg md:text-xl font-bold mb-3 md:mb-4 text-[#4d5e56] dark:text-gray-200">
                 Available Activities
               </h2>
               {state.parkActivities.length > 0 && (
@@ -994,7 +1045,7 @@ const Plan: React.FC = () => {
                   {Object.entries(groupActivities(state.parkActivities)).map(
                     ([category, activities]) => (
                       <div key={category} className="space-y-2">
-                        <h3 className="text-lg font-semibold text-[#2B4C7E] capitalize">
+                        <h3 className="text-base md:text-lg font-semibold text-[#2B4C7E] dark:text-gray-300 capitalize">
                           {category}
                         </h3>
                         <div className="flex flex-wrap gap-2">
@@ -1006,7 +1057,7 @@ const Plan: React.FC = () => {
                                   `Tell me about ${activity.name} in ${state.currentPark?.name}`
                                 )
                               }
-                              className="bg-[#97a88c]/10 text-[#4d5e56] px-3 py-1 rounded-full text-sm border border-[#97a88c]/20 hover:bg-[#97a88c]/20 transition-colors"
+                              className="bg-[#97a88c]/10 dark:bg-gray-700/50 text-[#4d5e56] dark:text-gray-300 px-2 md:px-3 py-1 rounded-full text-xs md:text-sm border border-[#97a88c]/20 dark:border-gray-600 hover:bg-[#97a88c]/20 dark:hover:bg-gray-600 transition-colors touch-manipulation"
                             >
                               {activity.name}
                             </button>
@@ -1020,8 +1071,8 @@ const Plan: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-lg overflow-hidden relative h-[600px]">
-            <div className="absolute top-4 right-4 z-[1000] flex gap-2 bg-white p-2 rounded-lg shadow-lg">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden relative h-[400px] md:h-[500px] lg:h-[600px] border border-gray-200 dark:border-gray-700 order-1 lg:order-2">
+            <div className="absolute top-2 right-2 md:top-4 md:right-4 z-[1000] flex flex-col sm:flex-row gap-2 bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
               <button
                 onClick={() =>
                   setState((prev) => ({
@@ -1029,16 +1080,17 @@ const Plan: React.FC = () => {
                     showTrails: !prev.showTrails,
                   }))
                 }
-                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-200 ${
+                className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-md transition-colors duration-200 text-xs md:text-sm touch-manipulation ${
                   state.showTrails
                     ? "bg-[#4CAF50] text-white"
-                    : "bg-gray-100 text-gray-700"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                 }`}
               >
-                <FaHiking className="text-lg" />
-                <span className="text-sm font-medium">
+                <FaHiking className="text-sm md:text-lg" />
+                <span className="font-medium hidden sm:inline">
                   {state.showTrails ? "Hide Trails" : "Show Trails"}
                 </span>
+                <span className="font-medium sm:hidden">Trails</span>
               </button>
               <button
                 onClick={() =>
@@ -1047,39 +1099,71 @@ const Plan: React.FC = () => {
                     showCampgrounds: !prev.showCampgrounds,
                   }))
                 }
-                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-200 ${
+                className={`flex items-center gap-1 md:gap-2 px-2 md:px-3 py-1.5 md:py-2 rounded-md transition-colors duration-200 text-xs md:text-sm touch-manipulation ${
                   state.showCampgrounds
                     ? "bg-[#FFA726] text-white"
-                    : "bg-gray-100 text-gray-700"
+                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                 }`}
               >
-                <FaCampground className="text-lg" />
-                <span className="text-sm font-medium">Campgrounds</span>
+                <FaCampground className="text-sm md:text-lg" />
+                <span className="font-medium">Campgrounds</span>
               </button>
 
               {/* Trail difficulty legend popup */}
               {state.showTrails && (
-                <div className="absolute top-full right-0 mt-2 bg-white p-2 rounded-lg shadow-lg">
-                  <div className="text-sm font-medium mb-1">
+                <div className="absolute top-full right-0 mt-2 bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+                  <div className="text-sm font-medium mb-1 text-gray-800 dark:text-gray-200">
                     Trail Difficulty:
                   </div>
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-4 h-1 bg-[#4CAF50]"></div>
-                    <span className="text-xs">Easy</span>
+                    <span className="text-xs text-gray-700 dark:text-gray-300">
+                      Easy
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 mb-1">
                     <div className="w-4 h-1 bg-[#FFA726]"></div>
-                    <span className="text-xs">Moderate</span>
+                    <span className="text-xs text-gray-700 dark:text-gray-300">
+                      Moderate
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-1 bg-[#E53935]"></div>
-                    <span className="text-xs">Difficult</span>
+                    <span className="text-xs text-gray-700 dark:text-gray-300">
+                      Difficult
+                    </span>
                   </div>
                 </div>
               )}
             </div>
 
-            <div ref={mapRef} className="h-[800px]">
+            <div ref={mapRef} className="h-[800px] relative">
+              {/* Map theme toggle button */}
+              <div className="absolute top-2 left-2 md:top-4 md:left-4 z-[1000]">
+                <button
+                  onClick={() => setIsDarkMap((prev) => !prev)}
+                  className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-1.5 md:p-2 rounded-lg shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 flex items-center gap-1 md:gap-2"
+                  title={
+                    isDarkMap ? "Switch to light map" : "Switch to dark map"
+                  }
+                >
+                  {isDarkMap ? (
+                    <>
+                      <FaSun className="text-base md:text-lg" />
+                      <span className="hidden md:inline text-sm font-medium">
+                        Light Map
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <FaMoon className="text-base md:text-lg" />
+                      <span className="hidden md:inline text-sm font-medium">
+                        Dark Map
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
               <MapContainer
                 key={state.currentPark?.parkCode || "default"}
                 center={mapCenter}
@@ -1087,11 +1171,10 @@ const Plan: React.FC = () => {
                 style={{ height: "100%", width: "100%" }}
                 scrollWheelZoom={true}
                 attributionControl={false}
+                zoomControl={false}
               >
-                <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                />
+                <ZoomControl position="bottomright" />
+                <MapThemeTileLayer isDarkMap={isDarkMap} />
                 <MapController
                   park={state.currentPark}
                   parkBoundary={parkBoundary}
@@ -1154,13 +1237,17 @@ const Plan: React.FC = () => {
                     >
                       <Popup>
                         <div className="p-2">
-                          <h3 className="font-bold">{campground.name}</h3>
-                          <p className="text-sm">{campground.description}</p>
+                          <h3 className="font-bold text-gray-900 dark:text-gray-100">
+                            {campground.name}
+                          </h3>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">
+                            {campground.description}
+                          </p>
                           <button
                             onClick={() =>
                               window.open(campground.reservationUrl)
                             }
-                            className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+                            className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                           >
                             Make Reservation
                           </button>
@@ -1170,22 +1257,28 @@ const Plan: React.FC = () => {
                   ))}
               </MapContainer>
             </div>
-            <div className="p-4 border-t border-gray-200">
-              <h3 className="font-semibold text-[#4d5e56] mb-2">
+            <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="font-semibold text-[#4d5e56] dark:text-gray-200 mb-2">
                 Trail Difficulty
               </h3>
               <div className="flex gap-4">
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded-full bg-[#4CAF50]"></div>
-                  <span className="text-sm text-gray-600">Easy</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    Easy
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded-full bg-[#FFA726]"></div>
-                  <span className="text-sm text-gray-600">Moderate</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    Moderate
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded-full bg-[#E53935]"></div>
-                  <span className="text-sm text-gray-600">Difficult</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">
+                    Difficult
+                  </span>
                 </div>
               </div>
             </div>
@@ -1195,23 +1288,28 @@ const Plan: React.FC = () => {
 
       <button
         onClick={() => setIsChatOpen(!isChatOpen)}
-        className="fixed bottom-6 left-6 bg-[#2B4C7E] text-white p-4 rounded-full shadow-lg hover:bg-[#1A365D] transition-colors duration-200 z-50"
+        className="fixed bottom-4 left-4 md:bottom-6 md:left-6 bg-[#2B4C7E] dark:bg-gray-700 text-white p-3 md:p-4 rounded-full shadow-lg hover:bg-[#1A365D] dark:hover:bg-gray-600 transition-colors duration-200 z-50 touch-manipulation"
+        aria-label="Toggle chatbot"
       >
-        {isChatOpen ? <FaTimes size={24} /> : <FaComments size={24} />}
+        {isChatOpen ? (
+          <FaTimes size={20} className="md:w-6 md:h-6" />
+        ) : (
+          <FaComments size={20} className="md:w-6 md:h-6" />
+        )}
       </button>
 
       {isChatOpen && (
-        <div className="fixed bottom-24 left-6 w-96 bg-white rounded-lg shadow-2xl z-50">
-          <div className="p-4 bg-[#2B4C7E] text-white rounded-t-lg flex justify-between items-center">
+        <div className="fixed bottom-20 left-4 right-4 md:bottom-24 md:left-6 md:right-auto md:w-96 bg-white dark:bg-gray-800 rounded-lg shadow-2xl z-50 border border-gray-200 dark:border-gray-700 max-h-[calc(100vh-120px)] md:max-h-[600px] flex flex-col">
+          <div className="p-4 bg-[#2B4C7E] dark:bg-gray-700 text-white rounded-t-lg flex justify-between items-center">
             <h3 className="font-semibold">TrailGuide AI Assistant</h3>
             <button
               onClick={() => setIsChatOpen(false)}
-              className="text-white hover:text-gray-200"
+              className="text-white hover:text-gray-200 dark:hover:text-gray-300"
             >
               <FaTimes />
             </button>
           </div>
-          <div className="p-4 h-[400px] overflow-y-auto flex flex-col space-y-4">
+          <div className="p-3 md:p-4 h-[300px] md:h-[400px] overflow-y-auto flex flex-col space-y-3 md:space-y-4 bg-gray-50 dark:bg-gray-900">
             {state.messages.map((message, index) => (
               <div
                 key={index}
@@ -1220,25 +1318,27 @@ const Plan: React.FC = () => {
                 }`}
               >
                 <div
-                  className={`max-w-[80%] p-3 rounded-lg ${
+                  className={`max-w-[85%] md:max-w-[80%] p-2 md:p-3 rounded-lg text-sm md:text-base ${
                     message.isUser
-                      ? "bg-[#2B4C7E] text-white rounded-br-none"
-                      : "bg-gray-100 text-gray-800 rounded-bl-none"
+                      ? "bg-[#2B4C7E] dark:bg-gray-700 text-white rounded-br-none"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-none"
                   }`}
                 >
-                  <p className="whitespace-pre-wrap">{message.text}</p>
+                  <p className="whitespace-pre-wrap break-words">
+                    {message.text}
+                  </p>
                 </div>
               </div>
             ))}
             {state.loading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 text-gray-800 p-3 rounded-lg rounded-bl-none">
+                <div className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 p-2 md:p-3 rounded-lg rounded-bl-none text-sm md:text-base">
                   <p>Thinking...</p>
                 </div>
               </div>
             )}
           </div>
-          <div className="p-4 border-t">
+          <div className="p-3 md:p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
             <div className="flex gap-2">
               <input
                 type="text"
@@ -1251,7 +1351,7 @@ const Plan: React.FC = () => {
                     ? `Ask about ${state.currentPark.name}...`
                     : "Ask about national parks..."
                 }
-                className="flex-1 p-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2B4C7E]"
+                className="flex-1 p-2 md:p-3 text-sm md:text-base bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2B4C7E] dark:focus:ring-gray-500"
                 onKeyPress={(e) => {
                   if (e.key === "Enter" && state.query.trim()) {
                     debouncedHandleSendMessage(state.query);
@@ -1266,7 +1366,7 @@ const Plan: React.FC = () => {
                     setState((prev) => ({ ...prev, query: "" }));
                   }
                 }}
-                className="bg-[#2B4C7E] text-white px-4 rounded-lg hover:bg-[#1A365D] transition-colors duration-200"
+                className="bg-[#2B4C7E] dark:bg-gray-700 text-white px-3 md:px-4 py-2 md:py-3 rounded-lg hover:bg-[#1A365D] dark:hover:bg-gray-600 transition-colors duration-200 text-sm md:text-base touch-manipulation"
               >
                 Send
               </button>

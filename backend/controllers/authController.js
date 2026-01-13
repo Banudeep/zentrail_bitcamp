@@ -105,45 +105,132 @@ exports.signin = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const { firstName, lastName } = req.body;
-    const email = 'aravind.panchanathan2799@gmail.com'; // Using the email directly for this update
-
-    // Find and update user
-    const user = await User.findOne({ email });
+    // Get user from request (set by verifyToken middleware)
+    const user = req.user;
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    // Update user fields
-    user.firstName = firstName;
-    user.lastName = lastName;
+    const { firstName, lastName } = req.body;
+
+    // Update user fields if provided (email cannot be changed)
+    if (firstName !== undefined) {
+      user.firstName = firstName;
+    }
+    if (lastName !== undefined) {
+      user.lastName = lastName;
+    }
+
     await user.save();
 
-    // Generate new token with updated information
-    const token = jwt.sign(
-      { 
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
+    // Return updated user (without password)
+    const updatedUser = await User.findById(user._id).select('-password');
+    
     res.json({
-      message: 'Profile updated successfully',
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        name: `${user.firstName} ${user.lastName}`.trim()
-      }
+      _id: updatedUser._id,
+      email: updatedUser.email,
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName
     });
   } catch (error) {
     console.error('Update profile error:', error);
-    res.status(500).json({ message: 'Error updating profile' });
+    res.status(500).json({ message: 'Error updating profile', error: error.message });
+  }
+};
+
+exports.changePassword = async (req, res) => {
+  try {
+    // Get user from request (set by verifyToken middleware)
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    // Check if user has a password (Google OAuth users might not have one)
+    if (!user.password) {
+      return res.status(400).json({ 
+        message: 'This account was created with Google OAuth. Please use Google to sign in.' 
+      });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: 'Current password and new password are required' });
+    }
+
+    // Trim whitespace
+    const trimmedNewPassword = newPassword.trim();
+
+    // Validate password matches original constraints (matching signup requirements)
+    // Minimum length: 8 characters (frontend requirement) or 6 (backend model minimum)
+    if (trimmedNewPassword.length < 8) {
+      return res.status(400).json({ 
+        message: 'New password must be at least 8 characters long' 
+      });
+    }
+
+    // Check for uppercase, lowercase, and number (matching frontend signup validation)
+    const hasUpperCase = /[A-Z]/.test(trimmedNewPassword);
+    const hasLowerCase = /[a-z]/.test(trimmedNewPassword);
+    const hasNumber = /\d/.test(trimmedNewPassword);
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+      return res.status(400).json({ 
+        message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number' 
+      });
+    }
+
+    // Verify current password
+    const isValidPassword = await user.comparePassword(currentPassword);
+    if (!isValidPassword) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    // Check if new password is the same as current password
+    const isSamePassword = await user.comparePassword(trimmedNewPassword);
+    if (isSamePassword) {
+      return res.status(400).json({ 
+        message: 'New password must be different from your current password' 
+      });
+    }
+
+    // Update password (will be hashed by pre-save hook)
+    user.password = trimmedNewPassword;
+    await user.save();
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map((err) => err.message);
+      return res.status(400).json({ 
+        message: 'Password validation failed', 
+        errors: messages 
+      });
+    }
+    
+    res.status(500).json({ message: 'Error changing password', error: error.message });
+  }
+};
+
+exports.deleteAccount = async (req, res) => {
+  try {
+    // Get user from request (set by verifyToken middleware)
+    const user = req.user;
+    if (!user) {
+      return res.status(401).json({ message: 'User not authenticated' });
+    }
+
+    // Delete user
+    await User.findByIdAndDelete(user._id);
+
+    res.json({ message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ message: 'Error deleting account', error: error.message });
   }
 }; 

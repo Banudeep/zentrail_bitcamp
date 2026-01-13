@@ -8,6 +8,7 @@ import Home from "./components/Home";
 import AuthCallback from "./components/auth/AuthCallback";
 import Explore from "./components/Explore/Explore";
 import Plan from "./components/Plan/Plan";
+import Settings from "./components/Settings/Settings";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 const App: React.FC = () => {
@@ -64,6 +65,14 @@ const App: React.FC = () => {
             element={
               <ProtectedRoute>
                 <Plan />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
               </ProtectedRoute>
             }
           />
